@@ -1,0 +1,45 @@
+ZARA REDESIGN: RESPONSIVE IMPLEMENTATION (ITIS-5390, Team 1)
+Chris Thompson, Jake Hartis, Ziona Agyemang, Jakia Gary
+
+WHAT'S IN THIS FOLDER
+  homepage.html     Start page (hero carousel + product sections)
+  productpage.html  Results page (opened from the nav links or search)
+  product.html      Product detail page (opened by clicking any product)
+  READ ME.txt       This file
+
+Everything (HTML, CSS and JavaScript) is inside each .html file.
+Nothing needs to be installed.
+
+HOW TO RUN IT
+  1. Download the .zip file and unzip it (right-click > Extract All on
+     Windows, or double-click it on Mac).
+  2. Open the "websiteproject" folder.
+  3. Double-click homepage.html. It opens in your web browser.
+     Google Chrome is recommended.
+  4. Stay connected to the internet so the product photos and the
+     Inter font load. The pages still work offline, just without photos.
+
+OPTIONAL: RUN IT ON A LOCAL SERVER
+  If your browser blocks saving settings for files opened directly,
+  run a small local server instead:
+  1. Open a terminal in the "websiteproject" folder.
+  2. Run:  python -m http.server 8000
+     (on some Macs use:  python3 -m http.server 8000)
+  3. Go to http://localhost:8000/homepage.html in your browser.
+
+HOW TO TEST MOBILE AND DESKTOP
+  1. In Chrome, right-click the page and choose Inspect.
+  2. Click the phone/tablet icon (Toggle device toolbar).
+  3. Set the width to 375 for mobile, then 1280 for desktop.
+
+WHAT TO TRY
+  - Mobile (375px): tap the hamburger icon to open the side menu,
+    then close it with the X, the dark area, or the Escape key.
+  - Desktop (1280px): the full horizontal navigation is always visible.
+  - Nav links (Woman, Man, Kids, Sale) open the results page; the
+    current category is underlined/bold in the navigation.
+  - Search: click the search box to see suggestions, pick one or press
+    Enter, then watch the loading screen before the results page.
+  - Dark mode: the toggle stays on as you move between pages.
+  - Product page: pick a color and size, open the Size guide, then
+    Add to bag (the Bag count updates on every page).

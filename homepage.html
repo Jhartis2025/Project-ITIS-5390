@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home | ZARA</title>
+
+<!-- Apply the saved light/dark theme BEFORE the page draws, so dark
+     mode stays on when you move between pages (no white flash) -->
+<script>
+try{
+    if(localStorage.getItem("zara-theme") === "dark"){
+        document.documentElement.classList.add("dark");
+    }
+}catch(error){}
+</script>
+
+<!-- Inter = the font used in the Figma prototype (falls back to Arial offline) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+
+/* =========================================================
+   SHARED STYLES (identical on every page)
+   Written MOBILE-FIRST: the base rules below are the phone
+   layout (~375px). Media queries further down only ADD rules
+   as the screen gets wider.
+   Breakpoints follow the Material Design responsive grid:
+     600px  = tablet (navbar replaces the hamburger)
+     905px  = desktop (full horizontal navbar, 4-column grid)
+   ========================================================= */
+
+/* ---------- Design tokens ----------
+   Every color/spacing value comes from these variables so the
+   light theme, the dark theme, mobile and desktop all share
+   one visual system (matches the greyscale Figma prototype). */
+:root{
+    --bg:#ffffff;
+    --surface:#f2f2f2;          /* breadcrumb bar, footer */
+    --surface-2:#e8e8e8;        /* image placeholders */
+    --text:#222222;
+    --text-muted:#666666;
+    --border:#cfcfcf;
+    --border-strong:#222222;    /* outlined buttons, logo, inputs */
+    --fill:#222222;             /* filled buttons (Add to bag) */
+    --fill-text:#ffffff;
+    --hover:#f2f2f2;
+    --overlay:rgba(255,255,255,.92);
+    --shadow:0 8px 18px rgba(0,0,0,.14);
+
+    --gutter:16px;              /* page side padding (8dp grid) */
+    --tap:44px;                 /* minimum touch target size */
+    --font:"Inter", Arial, Helvetica, sans-serif;
+}
+
+/* Dark theme (Material dark: #121212 background, light text).
+   The class lives on <html> so it can be applied in <head>
+   before the page paints (no white flash between pages). */
+html.dark{
+    --bg:#121212;
+    --surface:#1e1e1e;
+    --surface-2:#2a2a2a;
+    --text:#f5f5f5;
+    --text-muted:#bbbbbb;
+    --border:#444444;
+    --border-strong:#f5f5f5;
+    --fill:#f5f5f5;
+    --fill-text:#121212;
+    --hover:#2a2a2a;
+    --overlay:rgba(18,18,18,.94);
+    --shadow:0 8px 18px rgba(0,0,0,.5);
+}
+
+/* ---------- Reset / base ---------- */
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:var(--font);
+    font-size:16px;
+    line-height:1.4;
+    background:var(--bg);
+    color:var(--text);
+    overflow-x:hidden;
+    transition:background-color .2s ease, color .2s ease;
+}
+
+button,
+input{
+    font:inherit;
+    color:inherit;
+}
+
+img{
+    display:block;
+    max-width:100%;
+}
+
+a,
+button,
+input,
+[tabindex]{
+    -webkit-tap-highlight-color:transparent;
+}
+
+/* One focus style everywhere (keyboard users) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible{
+    outline:2px solid var(--text);
+    outline-offset:2px;
+}
+
+/* ---------- Loading overlay (shown before page changes) ---------- */
+.search-loading{
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    background:var(--overlay);
+    color:var(--text);
+    font-size:1.1rem;
+}
+
+.search-loading[hidden]{
+    display:none;
+}
+
+.loading-spinner{
+    width:28px;
+    height:28px;
+    border:3px solid var(--border);
+    border-top-color:var(--text);
+    border-radius:50%;
+    animation:spin .8s linear infinite;
+}
+
+@keyframes spin{
+    to{ transform:rotate(360deg); }
+}
+
+/* ---------- Outlined buttons ----------
+   Dark mode toggle, hero controls, hamburger, close and
+   "Load more" all share one button style (was different on
+   each page before). */
+.dark-btn,
+.hero-controls button,
+.mobile-menu-button,
+.mobile-sidebar-close,
+.load-more-button{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-height:var(--tap);
+    min-width:var(--tap);
+    padding:10px 16px;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+    cursor:pointer;
+    transition:background-color .2s ease, color .2s ease;
+}
+
+.dark-btn:hover,
+.hero-controls button:hover,
+.mobile-menu-button:hover,
+.mobile-sidebar-close:hover,
+.load-more-button:hover{
+    background:var(--fill);
+    color:var(--fill-text);
+}
+
+.mobile-menu-button,
+.mobile-sidebar-close{
+    padding:10px;
+}
+
+/* ---------- Header ---------- */
+header{
+    background:var(--bg);
+    border-bottom:1px solid var(--border);
+}
+
+.logo{
+    display:inline-flex;
+    align-items:center;
+    min-height:var(--tap);
+    padding:8px 16px;
+    border:2px solid var(--border-strong);
+    color:var(--text);
+    font-weight:bold;
+    letter-spacing:.08em;
+    text-decoration:none;
+}
+
+/* Mobile header: hamburger on the left, logo on the right */
+.mobile-header{
+    display:flex;
+    flex-direction:row-reverse;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px var(--gutter);
+}
+
+/* Full navbar is hidden on phones (hamburger is used instead) */
+.navbar{
+    display:none;
+}
+
+.left-nav{
+    display:flex;
+    align-items:center;
+    gap:32px;
+}
+
+.right-nav{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+}
+
+.nav-links{
+    display:flex;
+    gap:24px;
+    list-style:none;
+}
+
+.nav-links a,
+.icon-link{
+    display:inline-flex;
+    align-items:center;
+    min-height:var(--tap);
+    color:var(--text);
+    text-decoration:none;
+    transition:color .2s ease;
+}
+
+.nav-links a:hover,
+.icon-link:hover,
+.breadcrumb a:hover,
+footer a:hover{
+    text-decoration:underline;
+    text-underline-offset:4px;
+}
+
+/* Active page indicator (set by JS with aria-current="page") */
+.nav-links a[aria-current="page"]{
+    font-weight:bold;
+    text-decoration:underline;
+    text-decoration-thickness:2px;
+    text-underline-offset:6px;
+}
+
+/* ---------- Search with suggestions ---------- */
+.search-container{
+    position:relative;
+    width:100%;
+}
+
+.search-box{
+    width:100%;
+    min-height:var(--tap);
+    padding:10px 12px;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+}
+
+.search-box::placeholder{
+    color:var(--text-muted);
+}
+
+.search-suggestions{
+    position:absolute;
+    top:calc(100% + 6px);
+    left:0;
+    right:0;
+    z-index:10;
+    padding:6px 0;
+    background:var(--bg);
+    border:1px solid var(--border);
+    box-shadow:var(--shadow);
+    list-style:none;
+}
+
+.search-suggestions[hidden]{
+    display:none;
+}
+
+.search-suggestions button{
+    width:100%;
+    min-height:var(--tap);
+    padding:10px 12px;
+    border:0;
+    background:transparent;
+    color:var(--text);
+    text-align:left;
+    cursor:pointer;
+}
+
+.search-suggestions button:hover,
+.search-suggestions button:focus{
+    background:var(--hover);
+}
+
+/* ---------- Mobile slide-in sidebar (hamburger menu) ---------- */
+.mobile-sidebar{
+    display:block;
+    position:fixed;
+    top:0;
+    left:0;
+    z-index:30;
+    width:min(300px,85vw);
+    height:100vh;
+    height:100dvh;
+    padding:20px;
+    overflow-y:auto;
+    background:var(--bg);
+    color:var(--text);
+    box-shadow:4px 0 16px rgba(0,0,0,.2);
+    transform:translateX(-105%);
+    transition:transform .25s ease;
+}
+
+.mobile-sidebar.is-open{
+    transform:translateX(0);
+}
+
+.mobile-sidebar-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:24px;
+}
+
+.mobile-sidebar .search-container{
+    margin-bottom:16px;
+}
+
+.mobile-sidebar .nav-links{
+    flex-direction:column;
+    gap:0;
+    margin-bottom:20px;
+}
+
+.mobile-sidebar .nav-links a,
+.mobile-sidebar .icon-link{
+    display:flex;
+    width:100%;
+    padding:12px 4px;
+    border-bottom:1px solid var(--border);
+}
+
+/* Active category inside the sidebar gets a left bar too */
+.mobile-sidebar .nav-links a[aria-current="page"]{
+    padding-left:12px;
+    border-left:3px solid var(--text);
+    text-decoration:none;
+}
+
+.mobile-sidebar .dark-btn{
+    width:100%;
+    margin-bottom:16px;
+}
+
+.mobile-overlay{
+    display:none;
+}
+
+.mobile-overlay.is-open{
+    display:block;
+    position:fixed;
+    inset:0;
+    z-index:29;
+    background:rgba(0,0,0,.45);
+}
+
+body.menu-open{
+    overflow:hidden;
+}
+
+/* ---------- Breadcrumb bar (grey bar in the Figma) ---------- */
+.breadcrumb{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    padding:12px var(--gutter);
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    color:var(--text-muted);
+    font-size:14px;
+}
+
+/* Padding + negative margin = bigger tap area without making
+   the bar taller */
+.breadcrumb a{
+    display:inline-block;
+    padding:12px 4px;
+    margin:-12px -4px;
+    color:var(--text-muted);
+    text-decoration:none;
+}
+
+.breadcrumb [aria-current="page"]{
+    color:var(--text);
+}
+
+/* ---------- Product sections + grid (home + results) ---------- */
+.section{
+    padding:24px var(--gutter) 16px;
+}
+
+.section h2{
+    margin-bottom:16px;
+    font-size:1.25rem;
+}
+
+/* Figma mobile = 2 columns, desktop = 4 columns */
+.product-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:16px;
+}
+
+.product-card{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    cursor:pointer;
+    transition:transform .2s ease, box-shadow .2s ease;
+}
+
+.product-card[hidden]{
+    display:none;
+}
+
+.product-card:hover{
+    transform:translateY(-4px);
+    box-shadow:var(--shadow);
+}
+
+.product-image{
+    aspect-ratio:4 / 5;
+    overflow:hidden;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+}
+
+.product-image img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    transition:transform .3s ease;
+}
+
+.product-card:hover .product-image img{
+    transform:scale(1.05);
+}
+
+.product-card h3{
+    margin-top:4px;
+    font-size:1rem;
+    font-weight:normal;
+}
+
+.price{
+    font-weight:bold;
+}
+
+/* ---------- Footer (grey bar in the Figma) ---------- */
+footer{
+    display:flex;
+    flex-wrap:wrap;
+    gap:0 24px;
+    margin-top:24px;
+    padding:8px var(--gutter);
+    background:var(--surface);
+    border-top:1px solid var(--border);
+}
+
+footer a{
+    display:inline-flex;
+    align-items:center;
+    min-height:var(--tap);
+    color:var(--text);
+    text-decoration:none;
+}
+
+/* Hide the scrollbar on phones only (Figma spec: scroll
+   without a visible scrollbar on mobile) */
+@media(max-width:599.98px){
+    html{
+        scrollbar-width:none;
+    }
+
+    html::-webkit-scrollbar{
+        display:none;
+    }
+}
+
+/* ---------- Tablet: 600px and up ---------- */
+@media(min-width:600px){
+    :root{
+        --gutter:24px;
+    }
+
+    /* Swap the hamburger header for the real navbar */
+    .mobile-header,
+    .mobile-sidebar,
+    .mobile-overlay.is-open{
+        display:none;
+    }
+
+    body.menu-open{
+        overflow:auto;
+    }
+
+    .navbar{
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        gap:16px;
+        padding:16px var(--gutter);
+    }
+
+    .search-container{
+        max-width:400px;
+    }
+
+    .product-grid{
+        gap:20px;
+    }
+}
+
+/* ---------- Desktop: 905px and up ---------- */
+@media(min-width:905px){
+    :root{
+        --gutter:32px;
+    }
+
+    /* Full horizontal navigation, always visible */
+    .navbar{
+        flex-direction:row;
+        justify-content:space-between;
+    }
+
+    .right-nav{
+        flex-wrap:nowrap;
+    }
+
+    .search-container{
+        width:300px;
+    }
+
+    .product-grid{
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:24px;
+    }
+
+    footer{
+        gap:0 40px;
+    }
+}
+
+@media(prefers-reduced-motion:reduce){
+    *,
+    *::before,
+    *::after{
+        scroll-behavior:auto !important;
+        transition-duration:.01ms !important;
+        animation-duration:.01ms !important;
+    }
+}
+
+/* =========================================================
+   HOMEPAGE ONLY
+   ========================================================= */
+
+/* ---------- Hero carousel ---------- */
+.hero{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:40vh;
+    min-height:260px;
+    margin:var(--gutter) var(--gutter) 0;
+    overflow:hidden;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+}
+
+.hero-image{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+}
+
+.hero-image.is-changing{
+    animation:hero-fade .35s ease;
+}
+
+@keyframes hero-fade{
+    from{ opacity:.45; }
+    to{ opacity:1; }
+}
+
+/* Dark gradient so the white caption is always readable */
+.hero::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(90deg,rgba(0,0,0,.45),rgba(0,0,0,.05));
+}
+
+.hero h1{
+    position:relative;
+    z-index:1;
+    max-width:90%;
+    color:#fff;
+    font-size:1.5rem;
+    text-align:center;
+    text-shadow:0 2px 8px rgba(0,0,0,.5);
+}
+
+/* Controls sit inside the hero, bottom left (same as Figma) */
+.hero-controls{
+    position:absolute;
+    z-index:2;
+    bottom:12px;
+    left:12px;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:8px;
+}
+
+/* NEW: position dots in a bordered chip, like the Figma hero */
+.hero-dots{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    min-height:var(--tap);
+    padding:0 12px;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+}
+
+.hero-dot{
+    width:8px;
+    height:8px;
+    border:1px solid var(--text);
+    border-radius:50%;
+}
+
+.hero-dot.is-active{
+    background:var(--text);
+}
+
+@media(min-width:600px){
+    .hero{
+        height:55vh;
+    }
+
+    .hero h1{
+        font-size:2rem;
+    }
+
+    .hero-controls{
+        bottom:20px;
+        left:20px;
+        gap:10px;
+    }
+}
+
+@media(min-width:905px){
+    /* Figma: hero is about two-thirds of the viewport height */
+    .hero{
+        height:65vh;
+    }
+}
+
+</style>
+</head>
+<body>
+
+<!-- Loading overlay: shown for a moment before moving to a new page
+     (simulates the loading state from the Figma prototype) -->
+<div class="search-loading" role="status" aria-live="polite" hidden>
+    <span class="loading-spinner" aria-hidden="true"></span>
+    <span>Loading results...</span>
+</div>
+
+<header>
+
+    <!-- MOBILE HEADER (under 600px): hamburger + logo -->
+    <div class="mobile-header">
+        <a class="logo" href="homepage.html" aria-label="ZARA homepage">ZARA</a>
+        <button class="mobile-menu-button" type="button" aria-expanded="false" aria-controls="mobile-sidebar" aria-label="Open menu">
+            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+    </div>
+
+    <!-- DESKTOP NAVBAR (600px and up): full horizontal navigation -->
+    <nav class="navbar" aria-label="Main navigation">
+
+        <div class="left-nav">
+
+            <a class="logo" href="homepage.html" aria-label="ZARA homepage">ZARA</a>
+
+            <ul class="nav-links">
+                <li><a href="productpage.html?category=Woman">Woman</a></li>
+                <li><a href="productpage.html?category=Man">Man</a></li>
+                <li><a href="productpage.html?category=Kids">Kids</a></li>
+                <li><a href="productpage.html?category=Sale">Sale</a></li>
+            </ul>
+
+        </div>
+
+        <div class="right-nav">
+
+            <div class="search-container">
+                <input
+                    class="search-box"
+                    type="text"
+                    placeholder="Search for an item"
+                    aria-label="Search for an item"
+                    aria-expanded="false"
+                    aria-controls="search-suggestions"
+                    autocomplete="off">
+                <ul class="search-suggestions" id="search-suggestions" role="listbox" aria-label="Search suggestions" hidden></ul>
+            </div>
+
+            <!-- Label switches between "Dark mode" and "Light mode" (JS) -->
+            <button class="dark-btn" type="button">Dark mode</button>
+
+            <!-- TODO: Account page is not built yet (placeholder link) -->
+            <a class="icon-link" href="#">Account</a>
+            <!-- Bag count is saved in localStorage so it matches on every page -->
+            <a class="icon-link" href="#">Bag (<span class="bag-count">0</span>)</a>
+
+        </div>
+
+    </nav>
+
+</header>
+
+<!-- MOBILE SIDEBAR: slides in from the left when the hamburger is tapped -->
+<div class="mobile-overlay" aria-hidden="true"></div>
+<aside class="mobile-sidebar" id="mobile-sidebar" aria-label="Mobile navigation" aria-hidden="true">
+    <div class="mobile-sidebar-header">
+        <a class="logo" href="homepage.html" aria-label="ZARA homepage">ZARA</a>
+        <button class="mobile-sidebar-close" type="button" aria-label="Close menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+    </div>
+    <div class="search-container">
+        <input
+            class="search-box"
+            type="text"
+            placeholder="Search for an item"
+            aria-label="Search for an item"
+            aria-expanded="false"
+            aria-controls="mobile-search-suggestions"
+            autocomplete="off">
+        <ul class="search-suggestions" id="mobile-search-suggestions" role="listbox" aria-label="Search suggestions" hidden></ul>
+    </div>
+    <ul class="nav-links">
+        <li><a href="productpage.html?category=Woman">Woman</a></li>
+        <li><a href="productpage.html?category=Man">Man</a></li>
+        <li><a href="productpage.html?category=Kids">Kids</a></li>
+        <li><a href="productpage.html?category=Sale">Sale</a></li>
+    </ul>
+    <button class="dark-btn" type="button">Dark mode</button>
+    <a class="icon-link" href="#">Account</a>
+    <a class="icon-link" href="#">Bag (<span class="bag-count">0</span>)</a>
+</aside>
+<!-- NOT BUILT YET: the Figma mobile screens also have a bottom tab bar
+     (Home, Search, Saved, Account). It is not part of this submission. -->
+
+<div class="breadcrumb">
+    <span aria-current="page">Home</span>
+</div>
+
+<main>
+
+<section class="hero" aria-label="Featured looks">
+
+    <img
+        class="hero-image"
+        src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&amp;fit=crop&amp;w=1600&amp;q=80"
+        alt="Fashion shoppers browsing a clothing collection">
+    <!-- FIX: caption typo ("Stykles") and it now matches slide 1 in the script -->
+    <h1>ZARA's newest styles</h1>
+
+    <div class="hero-controls">
+
+        <button class="hero-pause" type="button" aria-label="Pause slideshow">Pause</button>
+        <button class="hero-previous" type="button" aria-label="Previous slide">&lt;</button>
+        <button class="hero-next" type="button" aria-label="Next slide">&gt;</button>
+        <span class="hero-dots" aria-hidden="true">
+            <span class="hero-dot is-active"></span>
+            <span class="hero-dot"></span>
+            <span class="hero-dot"></span>
+        </span>
+
+    </div>
+
+</section>
+
+<section class="section">
+
+    <h2>Featured Products</h2>
+
+    <div class="product-grid">
+
+        <div class="product-card">
+            <div class="product-image">
+                <img src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Model wearing a seasonal outfit">
+            </div>
+            <h3>Shirt</h3>
+            <p class="price">$00.00</p>
+        </div>
+
+        <div class="product-card">
+            <div class="product-image">
+                <img src="https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Denim jeans">
+            </div>
+            <h3>Jeans</h3>
+            <p class="price">$00.00</p>
+        </div>
+
+        <div class="product-card">
+            <div class="product-image">
+                <img src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Casual T-shirt">
+            </div>
+            <h3>T-Shirt</h3>
+            <p class="price">$00.00</p>
+        </div>
+
+        <div class="product-card">
+            <div class="product-image">
+                <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Red sneaker">
+            </div>
+            <h3>Sneakers</h3>
+            <p class="price">$00.00</p>
+        </div>
+
+    </div>
+
+</section>
+
+<section class="section">
+
+    <h2>New Arrivals</h2>
+
+    <div class="product-grid">
+
+        <div class="product-card">
+            <div class="product-image">
+                <img src="https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Handbag">
+            </div>
+            <h3>Handbag</h3>
+            <p class="price">$00.00</p>
+        </div>
+
+        <div class="product-card">
+            <div class="product-image">
+                <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Model wearing a fashion outfit">
+            </div>
+            <h3>Joggers</h3>
+            <p class="price">$00.00</p>
+        </div>
+
+        <div class="product-card">
+            <div class="product-image">
+                <img src="https://images.unsplash.com/photo-1548126032-079a0fb0099d?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Fashion clothing">
+            </div>
+            <h3>Puffer Jacket</h3>
+            <p class="price">$00.00</p>
+        </div>
+
+        <!-- FIX: was "Temp Picture Repeat" (placeholder name) -->
+        <div class="product-card">
+            <div class="product-image">
+                <img src="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Model wearing a summer dress">
+            </div>
+            <h3>Linen Dress</h3>
+            <p class="price">$00.00</p>
+        </div>
+
+    </div>
+
+</section>
+
+</main>
+
+<footer>
+
+    <!-- TODO: footer pages are not built yet (placeholder links) -->
+    <a href="#">Help &amp; Orders</a>
+    <a href="#">Shipping</a>
+    <a href="#">Returns</a>
+    <a href="#">Contact</a>
+
+</footer>
+
+<script>
+
+/* =========================================================
+   SHARED SCRIPT (identical on every page)
+   ========================================================= */
+
+/* ---------- Light / dark mode ----------
+   FIX: dark mode used to reset to light every time you went to
+   another page. The choice is now saved in localStorage and
+   re-applied on every page (the tiny script in <head> applies
+   it before the page paints so there is no white flash). */
+const THEME_KEY = "zara-theme";
+const darkButtons = document.querySelectorAll(".dark-btn");
+
+function getSavedTheme(){
+    try{
+        return localStorage.getItem(THEME_KEY) || "light";
+    }catch(error){
+        return "light";
+    }
+}
+
+function saveTheme(theme){
+    try{
+        localStorage.setItem(THEME_KEY, theme);
+    }catch(error){
+        /* storage blocked: theme still works on this page */
+    }
+}
+
+function applyTheme(theme){
+    const isDark = theme === "dark";
+    document.documentElement.classList.toggle("dark", isDark);
+
+    /* Button says what it will switch TO, like the Figma toggle */
+    darkButtons.forEach(button => {
+        button.textContent = isDark ? "Light mode" : "Dark mode";
+    });
+}
+
+applyTheme(getSavedTheme());
+
+darkButtons.forEach(button => {
+    button.addEventListener("click", () => {
+        const nextTheme = document.documentElement.classList.contains("dark") ? "light" : "dark";
+        applyTheme(nextTheme);
+        saveTheme(nextTheme);
+    });
+});
+
+/* Keep other open tabs of the site in sync */
+window.addEventListener("storage", event => {
+    if(event.key === THEME_KEY){
+        applyTheme(event.newValue || "light");
+    }
+});
+
+/* ---------- Bag count (shared across pages) ---------- */
+const BAG_KEY = "zara-bag-count";
+
+function getBagCount(){
+    try{
+        return Number(localStorage.getItem(BAG_KEY)) || 0;
+    }catch(error){
+        return 0;
+    }
+}
+
+function setBagCount(count){
+    try{
+        localStorage.setItem(BAG_KEY, String(count));
+    }catch(error){
+        /* storage blocked: count still updates on this page */
+    }
+    document.querySelectorAll(".bag-count").forEach(counter => {
+        counter.textContent = count;
+    });
+}
+
+setBagCount(getBagCount());
+
+/* ---------- Loading overlay + page changes ---------- */
+const searchLoading = document.querySelector(".search-loading");
+const pageParams = new URLSearchParams(window.location.search);
+const LOADING_DELAY = 800; /* same 800ms delay as the Figma prototype */
+
+function showLoading(){
+    searchLoading.hidden = false;
+    document.body.setAttribute("aria-busy", "true");
+}
+
+function hideLoading(){
+    searchLoading.hidden = true;
+    document.body.removeAttribute("aria-busy");
+}
+
+/* FIX: pressing the browser Back button used to bring back a page
+   that was still stuck on the loading screen. */
+window.addEventListener("pageshow", hideLoading);
+
+/* Results page (productpage.html) with ?category= or ?search= */
+function openProductPage(parameter, value){
+    showLoading();
+
+    window.setTimeout(() => {
+        const destination = new URL("productpage.html", window.location.href);
+        destination.searchParams.set(parameter, value);
+        window.location.href = destination.href;
+    }, LOADING_DELAY);
+}
+
+/* Product detail page (product.html). Passes the product name and
+   the current category so the breadcrumb + active nav stay correct. */
+function openProductDetails(productName){
+    const destination = new URL("product.html", window.location.href);
+    destination.searchParams.set("item", productName);
+
+    const category = pageParams.get("category");
+    if(category){
+        destination.searchParams.set("category", category);
+    }
+
+    window.location.href = destination.href;
+}
+
+/* Every product card (home + results) opens the product page.
+   FIX: cards on the homepage were not clickable before. */
+document.querySelectorAll(".product-card").forEach(card => {
+    const productName = card.querySelector("h3").textContent.trim();
+
+    card.tabIndex = 0;
+    card.setAttribute("role", "link");
+    card.setAttribute("aria-label", `View ${productName}`);
+
+    card.addEventListener("click", () => openProductDetails(productName));
+    card.addEventListener("keydown", event => {
+        if(event.key === "Enter" || event.key === " "){
+            event.preventDefault();
+            openProductDetails(productName);
+        }
+    });
+});
+
+/* ---------- Search with suggestions ---------- */
+const searchSuggestions = [
+    "Linen dress",
+    "Dresses",
+    "Jeans",
+    "T-shirts",
+    "Jackets",
+    "Sneakers",
+    "Bags",
+    "Sale items"
+];
+
+function updateSearchSuggestions(searchBox, searchSuggestionsList){
+    const query = searchBox.value.trim().toLowerCase();
+    const suggestions = searchSuggestions.filter(suggestion =>
+        suggestion.toLowerCase().includes(query)
+    );
+
+    searchSuggestionsList.replaceChildren();
+
+    suggestions.forEach(suggestion => {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+
+        button.type = "button";
+        button.textContent = suggestion;
+        button.setAttribute("role", "option");
+        button.addEventListener("click", () => {
+            searchBox.value = suggestion;
+            openProductPage("search", suggestion);
+        });
+
+        item.appendChild(button);
+        searchSuggestionsList.appendChild(item);
+    });
+
+    const hasSuggestions = suggestions.length > 0;
+    searchSuggestionsList.hidden = !hasSuggestions;
+    searchBox.setAttribute("aria-expanded", String(hasSuggestions));
+}
+
+function hideSearchSuggestions(searchBox, searchSuggestionsList){
+    searchSuggestionsList.hidden = true;
+    searchBox.setAttribute("aria-expanded", "false");
+}
+
+document.querySelectorAll(".search-container").forEach(searchContainer => {
+    const searchBox = searchContainer.querySelector(".search-box");
+    const searchSuggestionsList = searchContainer.querySelector(".search-suggestions");
+
+    searchBox.addEventListener("focus", () => updateSearchSuggestions(searchBox, searchSuggestionsList));
+    searchBox.addEventListener("input", () => updateSearchSuggestions(searchBox, searchSuggestionsList));
+    searchBox.addEventListener("keydown", event => {
+        if(event.key === "Escape"){
+            hideSearchSuggestions(searchBox, searchSuggestionsList);
+        }
+
+        /* FIX: pressing Enter in the search box did nothing before */
+        if(event.key === "Enter" && searchBox.value.trim()){
+            hideSearchSuggestions(searchBox, searchSuggestionsList);
+            openProductPage("search", searchBox.value.trim());
+        }
+    });
+
+    document.addEventListener("click", event => {
+        if(!searchContainer.contains(event.target)){
+            hideSearchSuggestions(searchBox, searchSuggestionsList);
+        }
+    });
+});
+
+/* ---------- Mobile hamburger menu ---------- */
+const mobileMenuButton = document.querySelector(".mobile-menu-button");
+const mobileSidebar = document.querySelector(".mobile-sidebar");
+const mobileSidebarClose = document.querySelector(".mobile-sidebar-close");
+const mobileOverlay = document.querySelector(".mobile-overlay");
+
+function setMobileMenuOpen(isOpen){
+    mobileSidebar.classList.toggle("is-open", isOpen);
+    mobileOverlay.classList.toggle("is-open", isOpen);
+    document.body.classList.toggle("menu-open", isOpen);
+    mobileMenuButton.setAttribute("aria-expanded", String(isOpen));
+    mobileSidebar.setAttribute("aria-hidden", String(!isOpen));
+    /* inert = links in the closed menu can't be tabbed to */
+    mobileSidebar.inert = !isOpen;
+}
+
+setMobileMenuOpen(false);
+
+mobileMenuButton.addEventListener("click", () => {
+    setMobileMenuOpen(true);
+    mobileSidebarClose.focus();
+});
+
+mobileSidebarClose.addEventListener("click", () => {
+    setMobileMenuOpen(false);
+    mobileMenuButton.focus();
+});
+
+mobileOverlay.addEventListener("click", () => {
+    setMobileMenuOpen(false);
+});
+
+/* Menu closes after any selection inside it */
+mobileSidebar.querySelectorAll("a").forEach(link => {
+    link.addEventListener("click", () => setMobileMenuOpen(false));
+});
+
+document.addEventListener("keydown", event => {
+    if(event.key === "Escape" && mobileSidebar.classList.contains("is-open")){
+        setMobileMenuOpen(false);
+        mobileMenuButton.focus();
+    }
+});
+
+/* FIX: if the window is widened past the mobile breakpoint while
+   the menu is open, close it so the page doesn't stay locked. */
+window.matchMedia("(min-width: 600px)").addEventListener("change", event => {
+    if(event.matches){
+        setMobileMenuOpen(false);
+    }
+});
+
+/* ---------- Category navigation + active page ---------- */
+const activeCategory = pageParams.get("category");
+
+document.querySelectorAll(".nav-links a").forEach(link => {
+    const category = link.textContent.trim();
+
+    /* NEW: highlight the category you are currently in
+       (desktop navbar and mobile sidebar) */
+    if(category === activeCategory){
+        link.setAttribute("aria-current", "page");
+    }
+
+    link.addEventListener("click", event => {
+        event.preventDefault();
+        setMobileMenuOpen(false);
+        openProductPage("category", category);
+    });
+});
+
+/* =========================================================
+   HOMEPAGE ONLY: hero carousel
+   ========================================================= */
+const hero = document.querySelector(".hero");
+const heroImage = hero.querySelector(".hero-image");
+const heroHeading = hero.querySelector("h1");
+const heroPauseButton = hero.querySelector(".hero-pause");
+const heroDots = hero.querySelectorAll(".hero-dot");
+
+/* FIX: captions were "Caption Here" on every slide after the first */
+const heroSlides = [
+    {
+        image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1600&q=80",
+        alt: "Fashion shoppers browsing a clothing collection",
+        heading: "ZARA's newest styles"
+    },
+    {
+        image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1600&q=80",
+        alt: "Model wearing a seasonal outfit",
+        heading: "New season looks"
+    },
+    {
+        image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1600&q=80",
+        alt: "Model showcasing a contemporary fashion look",
+        heading: "Fresh arrivals every week"
+    }
+];
+let currentHeroSlide = 0;
+let heroIsPaused = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let heroTimer;
+
+if(heroIsPaused){
+    heroPauseButton.textContent = "Play";
+    heroPauseButton.setAttribute("aria-label", "Play slideshow");
+}
+
+function showHeroSlide(index){
+    currentHeroSlide = (index + heroSlides.length) % heroSlides.length;
+    const slide = heroSlides[currentHeroSlide];
+
+    heroImage.classList.remove("is-changing");
+    heroImage.src = slide.image;
+    heroImage.alt = slide.alt;
+    heroHeading.textContent = slide.heading;
+    requestAnimationFrame(() => heroImage.classList.add("is-changing"));
+
+    /* Keep the position dots in sync with the slide */
+    heroDots.forEach((dot, dotIndex) => {
+        dot.classList.toggle("is-active", dotIndex === currentHeroSlide);
+    });
+}
+
+function startHeroCarousel(){
+    window.clearInterval(heroTimer);
+    if(!heroIsPaused){
+        heroTimer = window.setInterval(() => {
+            showHeroSlide(currentHeroSlide + 1);
+        }, 5000);
+    }
+}
+
+/* Manual arrows restart the timer so a slide doesn't skip right away */
+hero.querySelector(".hero-previous").addEventListener("click", () => {
+    showHeroSlide(currentHeroSlide - 1);
+    startHeroCarousel();
+});
+
+hero.querySelector(".hero-next").addEventListener("click", () => {
+    showHeroSlide(currentHeroSlide + 1);
+    startHeroCarousel();
+});
+
+heroPauseButton.addEventListener("click", () => {
+    heroIsPaused = !heroIsPaused;
+    heroPauseButton.textContent = heroIsPaused ? "Play" : "Pause";
+    heroPauseButton.setAttribute("aria-label", heroIsPaused ? "Play slideshow" : "Pause slideshow");
+    startHeroCarousel();
+});
+
+startHeroCarousel();
+
+</script>
+
+</body>
+</html>
