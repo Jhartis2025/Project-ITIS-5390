@@ -1,10 +1,11 @@
-ZARA REDESIGN: RESPONSIVE IMPLEMENTATION (ITIS-5390, Team 1)
-Chris Thompson, Jake Hartis, Ziona Agyemang, Jakia Gary
+ZARA REDESIGN: ACCESSIBILITY + DARK MODE (Assignment 13)
+ITIS-5390, Team 1: Chris Thompson, Jake Hartis, Ziona Agyemang, Jakia Gary
 
 WHAT'S IN THIS FOLDER
   homepage.html     Start page (hero carousel + product sections)
-  productpage.html  Results page (opened from the nav links or search)
-  product.html      Product detail page (opened by clicking any product)
+  productpage.html  Results page (search results + categories)
+  product.html      Product detail page
+  account.html      NEW: Create account form (this assignment)
   READ ME.txt       This file
 
 Everything (HTML, CSS and JavaScript) is inside each .html file.
@@ -16,12 +17,15 @@ HOW TO RUN IT
   2. Open the "websiteproject" folder.
   3. Double-click homepage.html. It opens in your web browser.
      Google Chrome is recommended.
-  4. Stay connected to the internet so the product photos and the
-     Inter font load. The pages still work offline, just without photos.
+  4. To go straight to the form, double-click account.html, or click
+     "Account" in the top navigation (or in the mobile menu).
+  5. Stay connected to the internet so product photos and the Inter
+     font load. Without internet the pages still work; photos show
+     "Image unavailable" instead.
 
 OPTIONAL: RUN IT ON A LOCAL SERVER
-  If your browser blocks saving settings for files opened directly,
-  run a small local server instead:
+  If your browser blocks saving settings for files opened directly
+  (dark mode, the bag or your name resetting between pages):
   1. Open a terminal in the "websiteproject" folder.
   2. Run:  python -m http.server 8000
      (on some Macs use:  python3 -m http.server 8000)
@@ -32,14 +36,216 @@ HOW TO TEST MOBILE AND DESKTOP
   2. Click the phone/tablet icon (Toggle device toolbar).
   3. Set the width to 375 for mobile, then 1280 for desktop.
 
-WHAT TO TRY
-  - Mobile (375px): tap the hamburger icon to open the side menu,
-    then close it with the X, the dark area, or the Escape key.
-  - Desktop (1280px): the full horizontal navigation is always visible.
-  - Nav links (Woman, Man, Kids, Sale) open the results page; the
-    current category is underlined/bold in the navigation.
-  - Search: click the search box to see suggestions, pick one or press
-    Enter, then watch the loading screen before the results page.
-  - Dark mode: the toggle stays on as you move between pages.
-  - Product page: pick a color and size, open the Size guide, then
-    Add to bag (the Bag count updates on every page).
+------------------------------------------------------------
+ASSIGNMENT 13: ACCESSIBILITY + DARK MODE
+------------------------------------------------------------
+1. DARK MODE SWITCH
+   - Where: top right of every page on desktop; inside the menu
+     (hamburger) on phones.
+   - It's an on/off switch that shows the CURRENT mode: "Dark mode
+     [switch] Off" in light mode, knob slides right + "On" in dark
+     mode. (Before, the button said "Light mode" while dark mode was
+     on, which read backwards.) Screen readers hear "Dark mode,
+     switch, on/off".
+   - Works on every page + every component: header, menus, search
+     suggestions, product cards, bag panel, quick add + size guide
+     pop-ups, the account form, error/success states.
+   - Your choice is saved, so it stays on when you change pages or
+     reload. If you have never picked, the site follows your
+     device's light/dark setting.
+   - The dark palette is designed, not inverted: #121212 background,
+     lighter #202020/#333333 surfaces for bars + photo frames, softer
+     error/success colors chosen for dark backgrounds.
+
+2. COLOR CONTRAST (WCAG AA)
+   Checked two ways:
+   a) axe-core 4.10 (the engine behind Chrome Lighthouse's
+      accessibility audit) on all 4 pages, light + dark, desktop
+      (1280px) + phone (375px), with the form showing its errors:
+      0 violations, including 0 color-contrast failures.
+   b) Every color pair worked out with the WCAG contrast formula
+      (same math as the WebAIM Contrast Checker,
+      webaim.org/resources/contrastchecker):
+
+  LIGHT MODE
+    Body text                          #222222 on #ffffff  15.91:1  (needs 4.5:1)  PASS   [Page background]
+    Body text                          #222222 on #f2f2f2  14.21:1  (needs 4.5:1)  PASS   [Breadcrumb / footer bar]
+    Muted text, hints, placeholders    #666666 on #ffffff   5.74:1  (needs 4.5:1)  PASS   [Page background]
+    Muted text (breadcrumb)            #666666 on #f2f2f2   5.13:1  (needs 4.5:1)  PASS   [Breadcrumb bar]
+    Muted text (sold-out size)         #666666 on #f2f2f2   5.13:1  (needs 4.5:1)  PASS   [Sold-out size box]
+    Button text                        #ffffff on #222222  15.91:1  (needs 4.5:1)  PASS   [Filled button]
+    Error message                      #b3261e on #ffffff   6.54:1  (needs 4.5:1)  PASS   [Page background]
+    Success message                    #1b7f3b on #ffffff   5.07:1  (needs 4.5:1)  PASS   [Page background]
+    Input border (UI)                  #767676 on #ffffff   4.54:1  (needs 3.0:1)  PASS   [Page background]
+    Focus ring (UI)                    #222222 on #ffffff  15.91:1  (needs 3.0:1)  PASS   [Page background]
+    Hero caption                       #ffffff on #595959   7.00:1  (needs 4.5:1)  PASS   [65% black plate over a white photo (worst case)]
+  DARK MODE
+    Body text                          #f5f5f5 on #121212  17.18:1  (needs 4.5:1)  PASS   [Page background]
+    Body text                          #f5f5f5 on #202020  14.94:1  (needs 4.5:1)  PASS   [Breadcrumb / footer bar]
+    Muted text, hints, placeholders    #bbbbbb on #121212   9.76:1  (needs 4.5:1)  PASS   [Page background]
+    Muted text (breadcrumb)            #bbbbbb on #202020   8.49:1  (needs 4.5:1)  PASS   [Breadcrumb bar]
+    Muted text on image frame          #bbbbbb on #333333   6.58:1  (needs 4.5:1)  PASS   [Image placeholder]
+    Button text                        #121212 on #f5f5f5  17.18:1  (needs 4.5:1)  PASS   [Filled button]
+    Error message                      #f2b8b5 on #121212  10.97:1  (needs 4.5:1)  PASS   [Page background]
+    Success message                    #81c995 on #121212   9.56:1  (needs 4.5:1)  PASS   [Page background]
+    Input border (UI)                  #8f8f8f on #121212   5.79:1  (needs 3.0:1)  PASS   [Page background]
+    Focus ring (UI)                    #ffffff on #121212  18.73:1  (needs 3.0:1)  PASS   [Page background]
+    Required-checkbox red (UI)         #ff6b6b on #121212   6.75:1  (needs 3.0:1)  PASS   [Page background]
+
+   Changes made for contrast:
+   - Search box border was #cfcfcf (1.5:1, too faint). Now #767676
+     light / #8f8f8f dark.
+   - Hero caption now sits on a 65% black plate, so white text passes
+     on ANY photo (even a white one, or if the photo fails to load).
+   - Error + success icons inside form fields use lighter colors in
+     dark mode so they don't disappear on the dark input.
+   - Placeholder text uses the muted color (5.74:1 light, 9.76:1 dark).
+
+3. FOCUS STATES (keyboard users)
+   - Every link, button, input, card + checkbox shows a thick outline
+     with a halo when you Tab to it, visible on white, black and on
+     photos. The search box + form fields used to remove the outline
+     (outline:none) and use a faint ring; that's fixed.
+   - New "Skip to main content" link: press Tab once on any page.
+
+4. TEXT SIZE + 200% ZOOM
+   - Every font size is now in rem (no px font sizes left), touch
+     targets are 2.75rem, and the layout breakpoints are in em, so
+     everything grows when someone zooms or sets a bigger default
+     font in their browser.
+   - Tested on all 4 pages in light + dark at:
+       200% page zoom on desktop (1280px -> 640px)
+       200% page zoom on a phone (320px wide)
+       200% text size on desktop (1280px) + phone (375px)
+     Result: no horizontal scrolling, nothing cut off or overlapping.
+   - Fixes from that testing: the desktop header wraps onto a second
+     row instead of pushing "Bag" off the screen; the search box width
+     is in rem; the phone hero grows taller so the Shop button never
+     covers the Pause/dots row.
+
+   HOW TO CHECK IT YOURSELF
+   - Zoom: press Ctrl and + (Cmd and + on Mac) until it says 200%.
+   - Bigger text: Chrome Settings > Appearance > Font size > Very large.
+   - Contrast: Chrome DevTools > Lighthouse > Accessibility, or paste
+     the colors above into the WebAIM Contrast Checker.
+   - Keyboard: press Tab to move through the page, Enter/Space to use.
+
+------------------------------------------------------------
+THE FORM: CREATE ACCOUNT (account.html)
+------------------------------------------------------------
+Fields: Name, Email, Phone (optional), Password, Confirm
+password, Terms checkbox (+ an optional newsletter checkbox).
+
+WHEN IT CHECKS (helpful, not hostile)
+  - Typing in a field you haven't left yet: no red errors on the
+    first keystroke; it turns green as soon as it's valid.
+  - Leaving a field: it's fully checked and any error shows.
+  - After that, it re-checks on every keystroke, so the error goes
+    away the moment you fix it.
+  - The password checklist + strength bar update live as you type.
+  - Submit checks everything once more and jumps to the first
+    problem. There are no alert boxes.
+
+HOW ERRORS + SUCCESS LOOK
+  - Error: red border, red "!" icon in the field, red message right
+    under the field. Unmet password rules turn red.
+  - Success: green border, green check in the field, a short
+    "Looks good" style message.
+  - Space for messages is reserved, so the form doesn't jump around
+    when a message appears.
+
+THINGS TO TRY (each shows a different, specific message)
+  Name:        any name works; type one, delete it, then click away
+               to see the "Enter a name" message
+  Email:       leave empty / "ziona" / "ziona@gmail" / "zi ona@gmail.com"
+  Phone:       "70455" / "704abc" / leave it empty (that's fine)
+               (it formats itself: 7045550123 -> (704) 555-0123)
+  Password:    "abc" and watch the checklist + strength bar fill in
+  Confirm:     type something different / then match it
+  Terms:       try Create account without checking it
+  Submit:      press Create account with everything empty
+  "Server" error: use taken@example.com as the email. After the
+               loading spinner, the error appears on the email field.
+  Success:     fix everything, submit, see the spinner, then the
+               "Welcome, <your name>!" screen. The Account link on every page
+               now says "Hi, <your name>", exactly as you typed it.
+
+------------------------------------------------------------
+STILL WORKING FROM EARLIER ASSIGNMENTS
+------------------------------------------------------------
+  - Responsive layout with a hamburger menu on mobile + full nav on
+    desktop (active page underlined).
+  - Live search with suggestions, a "No results" state, loading
+    skeletons and micro-interactions.
+  - Working bag (add, remove, demo checkout), saved across pages.
+  - Dark mode that stays on across pages.
+
+------------------------------------------------------------
+CHANGES FROM OUR CRITIQUE + USER TESTING
+------------------------------------------------------------
+Critique we RECEIVED:
+  Nate (Group 9):
+   - "Make the hero pictures clickable to send it to a product page"
+     -> Every hero slide opens its product, with a "Shop ..." button.
+   - "Have a working bag section"
+     -> The Bag lists each item (size, color, quantity, price), lets
+        you remove items, shows a subtotal, saves across pages and has
+        a demo checkout with a loading state.
+  Lamar (Group 11):
+   - "Change the placement of the hero's arrows and picture rotation"
+     -> Arrows moved to the left/right edges. Pause + slide dots sit
+        together at the bottom center, the dots are clickable, and a
+        progress bar shows when the next slide is coming.
+  Things they said worked (kept as-is): the bag count saving across
+  pages, "Load more" on the results page, dark mode saving across
+  pages, dark mode inside the mobile menu, the pause button.
+
+Critique ROUND 2 (in-class critique, Groups 10, 5 + 4):
+  Group 10:
+   - "Add and delete items straight from the bag"
+     -> Each bag item has - / + buttons for quantity plus Remove. The
+        price, subtotal + Bag count update instantly.
+   - "Have the carousel move a little slower"
+     -> Slides now stay up for 8 seconds instead of 5.
+   - "Limit the amount of window transitions to get to parts of the site"
+     -> "Quick add" on every product card: pick a size + add to the
+        bag in a pop-up, without leaving the page. (On desktop it shows
+        when you hover a card; on phones it's always visible as +.)
+  Group 5:
+   - "Slow down the carousel" -> same 8 second change as above.
+   - "Change the contrast with dark mode so you can separate the
+     background from the picture" -> dark mode photo frames are
+     lighter, with a visible outline + soft shadow.
+   - "Clearer borders in dark mode" -> brighter borders, plus a
+     divider line between page sections (where light mode uses
+     white space).
+   - "Add loading animations to show transitions between pages"
+     -> a thin progress bar runs across the top while the next page
+        loads, and every page fades + slides in when it opens.
+  Group 4:
+   - "Add drop shadow onto the buttons in the carousel" -> done
+     (arrows, Pause, dots, Shop button).
+   - "Maybe get rid of the timer bar on the carousel" -> Group 5 said
+     they LIKED the timer, so we kept it but made it thinner + softer,
+     and it hides when the slideshow is paused.
+  Feedback we gave others that we checked on our own site:
+   - "Increase the time of the loading spinner so it's less choppy"
+     (to Newegg) -> our spinner turns a little slower now.
+   - "Add the count to the cart when adding" (to Temu) -> our Bag
+     count updates + pops every time something is added.
+   - "Add a footer" (to Temu) -> every page already has one.
+
+Feedback we GAVE other groups, applied to our own site too:
+   - "Change the placeholders to make it more interactive"
+     -> $00.00 placeholder prices replaced with real prices (sale items
+        show the old price crossed out). The Account link now opens a
+        real page instead of going nowhere.
+   - "Toggle dark mode without going into the user profile"
+     -> Dark mode stays one tap away in the header (and mobile menu).
+
+User testing (Assignment 8 findings):
+   - Size guide has an Inches / Centimetres switch (inches default).
+   - Size guide is a clear button, and the "Product measurements"
+     dropdown links to it, so size info isn't split in two places.
+   - Sold-out sizes say "Sold out" on the size button itself.
+   - The selected color's name is shown.

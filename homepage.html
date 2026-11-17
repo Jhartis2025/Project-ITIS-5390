@@ -8,8 +8,11 @@
 <!-- Apply the saved light/dark theme BEFORE the page draws, so dark
      mode stays on when you move between pages (no white flash) -->
 <script>
+/* A13: if you never picked a theme, follow your device setting
+   (prefers-color-scheme). A choice you make with the switch wins. */
 try{
-    if(localStorage.getItem("zara-theme") === "dark"){
+    var savedTheme = localStorage.getItem("zara-theme");
+    if(savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)){
         document.documentElement.classList.add("dark");
     }
 }catch(error){}
@@ -44,14 +47,21 @@ try{
     --text-muted:#666666;
     --border:#cfcfcf;
     --border-strong:#222222;    /* outlined buttons, logo, inputs */
+    --border-input:#767676;     /* A13: input borders, 4.5:1 on white */
+    --focus:#222222;            /* A13: focus ring */
     --fill:#222222;             /* filled buttons (Add to bag) */
     --fill-text:#ffffff;
     --hover:#f2f2f2;
     --overlay:rgba(255,255,255,.92);
     --shadow:0 8px 18px rgba(0,0,0,.14);
+    --ring:rgba(34,34,34,.15);       /* focus ring around inputs */
+    --error:#b3261e;                 /* error text (Material error red) */
+    --error-ring:rgba(179,38,30,.2);
+    --success:#1b7f3b;               /* valid fields (A12) */
+    --shimmer:rgba(255,255,255,.55); /* skeleton shimmer highlight */
 
     --gutter:16px;              /* page side padding (8dp grid) */
-    --tap:44px;                 /* minimum touch target size */
+    --tap:2.75rem;              /* 44px touch targets that grow with text size (A13) */
     --font:"Inter", Arial, Helvetica, sans-serif;
 }
 
@@ -60,17 +70,27 @@ try{
    before the page paints (no white flash between pages). */
 html.dark{
     --bg:#121212;
-    --surface:#1e1e1e;
-    --surface-2:#2a2a2a;
+    /* Critique (Group 5): dark mode needed more contrast between the
+       background + pictures, and clearer borders where light mode
+       uses white space. Surfaces are lighter and borders brighter. */
+    --surface:#202020;
+    --surface-2:#333333;
     --text:#f5f5f5;
     --text-muted:#bbbbbb;
-    --border:#444444;
+    --border:#5e5e5e;
     --border-strong:#f5f5f5;
+    --border-input:#8f8f8f;
+    --focus:#ffffff;
     --fill:#f5f5f5;
     --fill-text:#121212;
     --hover:#2a2a2a;
     --overlay:rgba(18,18,18,.94);
     --shadow:0 8px 18px rgba(0,0,0,.5);
+    --ring:rgba(245,245,245,.2);
+    --error:#f2b8b5;
+    --error-ring:rgba(242,184,181,.25);
+    --success:#81c995;
+    --shimmer:rgba(255,255,255,.08);
 }
 
 /* ---------- Reset / base ---------- */
@@ -82,7 +102,7 @@ html.dark{
 
 body{
     font-family:var(--font);
-    font-size:16px;
+    font-size:1rem;
     line-height:1.4;
     background:var(--bg);
     color:var(--text);
@@ -109,13 +129,34 @@ input,
 }
 
 /* One focus style everywhere (keyboard users) */
+/* A13: one strong focus style for every interactive element.
+   A text-colored outline with a background-colored halo behind it,
+   so the ring stays visible on white, black AND on photos. */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 summary:focus-visible,
 [tabindex]:focus-visible{
-    outline:2px solid var(--text);
+    outline:3px solid var(--focus);
     outline-offset:2px;
+    box-shadow:0 0 0 5px var(--bg);
+}
+
+/* Skip link: first thing keyboard users reach on every page */
+.skip-link{
+    position:absolute;
+    top:-100px;
+    left:var(--gutter);
+    z-index:2000;
+    padding:.75rem 1rem;
+    background:var(--fill);
+    color:var(--fill-text);
+    font-weight:bold;
+    text-decoration:none;
+}
+
+.skip-link:focus{
+    top:.5rem;
 }
 
 /* ---------- Loading overlay (shown before page changes) ---------- */
@@ -154,7 +195,7 @@ summary:focus-visible,
    "Load more" all share one button style (was different on
    each page before). */
 .dark-btn,
-.hero-controls button,
+.hero-pause,
 .mobile-menu-button,
 .mobile-sidebar-close,
 .load-more-button{
@@ -173,7 +214,7 @@ summary:focus-visible,
 }
 
 .dark-btn:hover,
-.hero-controls button:hover,
+.hero-pause:hover,
 .mobile-menu-button:hover,
 .mobile-sidebar-close:hover,
 .load-more-button:hover{
@@ -211,6 +252,11 @@ header{
     align-items:center;
     justify-content:space-between;
     padding:8px var(--gutter);
+}
+
+/* Mobile search row under the header (A11) */
+.mobile-search{
+    padding:0 var(--gutter) 12px;
 }
 
 /* Full navbar is hidden on phones (hamburger is used instead) */
@@ -256,7 +302,19 @@ footer a:hover{
     text-underline-offset:4px;
 }
 
+/* Long names in "Hi, <name>" get cut off with ... instead of
+   breaking the header */
+.navbar .account-link{
+    display:inline-block !important;
+    max-width:12em;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    line-height:var(--tap);
+}
+
 /* Active page indicator (set by JS with aria-current="page") */
+.icon-link[aria-current="page"],
 .nav-links a[aria-current="page"]{
     font-weight:bold;
     text-decoration:underline;
@@ -273,9 +331,51 @@ footer a:hover{
 .search-box{
     width:100%;
     min-height:var(--tap);
-    padding:10px 12px;
-    border:1px solid var(--border-strong);
+    padding:10px 40px 10px 38px;   /* room for the icon + clear button */
+    border:1px solid var(--border-input);   /* A13: was too light (1.5:1) */
     background:var(--bg);
+    color:var(--text);
+    /* ANIMATION 1 (A11): focus ring eases in so you can see which
+       field is active, instead of snapping on */
+    transition:border-color .2s ease, box-shadow .2s ease;
+}
+
+/* A13: keeps the strong focus outline (it used to be removed and
+   replaced with a faint ring that failed contrast) */
+.search-box:focus{
+    border-color:var(--border-strong);
+}
+
+.search-icon{
+    position:absolute;
+    top:50%;
+    left:12px;
+    color:var(--text-muted);
+    transform:translateY(-50%);
+    pointer-events:none;
+}
+
+.search-clear{
+    position:absolute;
+    top:50%;
+    right:4px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:2.25rem;
+    height:2.25rem;
+    border:0;
+    background:transparent;
+    color:var(--text-muted);
+    cursor:pointer;
+    transform:translateY(-50%);
+}
+
+.search-clear[hidden]{
+    display:none;
+}
+
+.search-clear:hover{
     color:var(--text);
 }
 
@@ -288,32 +388,97 @@ footer a:hover{
     top:calc(100% + 6px);
     left:0;
     right:0;
-    z-index:10;
+    z-index:40;
+    max-height:min(420px, 70vh);
+    overflow-y:auto;
     padding:6px 0;
     background:var(--bg);
     border:1px solid var(--border);
     box-shadow:var(--shadow);
-    list-style:none;
+    /* ANIMATION 2 (A11): dropdown fades + slides down when it opens,
+       so it reads as coming FROM the search box */
+    animation:dropdown-in .18s ease-out;
+}
+
+@keyframes dropdown-in{
+    from{ opacity:0; transform:translateY(-6px); }
+    to{ opacity:1; transform:translateY(0); }
 }
 
 .search-suggestions[hidden]{
     display:none;
 }
 
+/* Small grey group labels: "Products" / "Searches" */
+.suggestion-group{
+    padding:8px 12px 4px;
+    color:var(--text-muted);
+    font-size:0.75rem;
+    font-weight:bold;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+}
+
 .search-suggestions button{
+    display:flex;
+    align-items:center;
+    gap:12px;
     width:100%;
     min-height:var(--tap);
-    padding:10px 12px;
+    padding:6px 12px;
     border:0;
     background:transparent;
     color:var(--text);
     text-align:left;
     cursor:pointer;
+    transition:background-color .15s ease;
 }
 
+/* .is-active = highlighted with the arrow keys */
 .search-suggestions button:hover,
-.search-suggestions button:focus{
+.search-suggestions button:focus,
+.search-suggestions button.is-active{
     background:var(--hover);
+}
+
+.suggestion-thumb{
+    flex-shrink:0;
+    width:36px;
+    height:44px;
+    overflow:hidden;
+    background:var(--surface-2);
+}
+
+.suggestion-thumb img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+}
+
+.suggestion-text{
+    display:flex;
+    flex-direction:column;
+}
+
+.suggestion-meta{
+    color:var(--text-muted);
+    font-size:0.75rem;
+}
+
+/* The part of the word that matches what you typed */
+.search-suggestions mark{
+    background:none;
+    color:inherit;
+    font-weight:bold;
+    text-decoration:underline;
+    text-underline-offset:3px;
+}
+
+/* No-match message inside the dropdown */
+.suggestion-empty{
+    padding:12px;
+    color:var(--text-muted);
+    font-size:0.875rem;
 }
 
 /* ---------- Mobile slide-in sidebar (hamburger menu) ---------- */
@@ -402,7 +567,7 @@ body.menu-open{
     background:var(--surface);
     border-bottom:1px solid var(--border);
     color:var(--text-muted);
-    font-size:14px;
+    font-size:0.875rem;
 }
 
 /* Padding + negative margin = bigger tap area without making
@@ -455,6 +620,7 @@ body.menu-open{
 
 .product-image{
     aspect-ratio:4 / 5;
+    transition:border-color .2s ease;
     overflow:hidden;
     background:var(--surface-2);
     border:1px solid var(--border);
@@ -481,6 +647,12 @@ body.menu-open{
     font-weight:bold;
 }
 
+/* Sale items: old price crossed out in grey before the new one */
+.price-was{
+    color:var(--text-muted);
+    font-weight:normal;
+}
+
 /* ---------- Footer (grey bar in the Figma) ---------- */
 footer{
     display:flex;
@@ -500,9 +672,691 @@ footer a{
     text-decoration:none;
 }
 
+
+/* =========================================================
+   A11: LOADING STATES + MICRO-INTERACTIONS (shared)
+   ========================================================= */
+
+/* ---------- Skeleton shimmer ----------
+   Grey blocks with a light sweep moving across them. Used for
+   product cards while results load, and for any image that is
+   still downloading. Tells the user "content is on its way". */
+.skeleton,
+.is-loading-img{
+    position:relative;
+    overflow:hidden;
+    background:var(--surface-2);
+}
+
+.skeleton::after,
+.is-loading-img::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(90deg, transparent, var(--shimmer), transparent);
+    transform:translateX(-100%);
+    animation:shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer{
+    to{ transform:translateX(100%); }
+}
+
+/* Images fade in once they have loaded (no hard pop-in) */
+.is-loading-img img{
+    opacity:0;
+}
+
+.product-image img,
+.gallery-main img,
+.related-card img,
+.suggestion-thumb img{
+    transition:opacity .3s ease, transform .3s ease;
+}
+
+/* Image failed to load: say so instead of showing a broken icon */
+.is-broken-img{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--surface-2);
+}
+
+.is-broken-img img{
+    display:none;
+}
+
+.is-broken-img::before{
+    content:"Image unavailable";
+    color:var(--text-muted);
+    font-size:0.8125rem;
+}
+
+/* Tiny thumbnails are too small for the text: plain grey box */
+.suggestion-thumb.is-broken-img::before,
+.bag-item .is-broken-img::before{
+    content:"";
+}
+
+/* Skeleton version of a product card */
+.skeleton-card{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.skeleton-card .skeleton-image{
+    aspect-ratio:4 / 5;
+}
+
+.skeleton-line{
+    height:12px;
+    border-radius:2px;
+}
+
+.skeleton-line.short{
+    width:40%;
+}
+
+/* ---------- Small inline spinner (inside buttons / status text) ---------- */
+.spinner-sm{
+    display:inline-block;
+    width:16px;
+    height:16px;
+    border:2px solid currentColor;
+    border-right-color:transparent;
+    border-radius:50%;
+    vertical-align:-3px;
+    animation:spin .7s linear infinite;
+}
+
+/* Any button in a loading state: dimmed + not clickable */
+button[aria-busy="true"]{
+    cursor:progress;
+    opacity:.8;
+}
+
+/* ---------- Cards fade up when they appear ----------
+   ANIMATION 3: new results slide up slightly + fade in, one after
+   another, so it's obvious the list just changed. */
+.fade-up{
+    animation:fade-up .35s ease-out both;
+    animation-delay:calc(var(--i, 0) * 40ms);
+}
+
+/* Uses "translate" (not "transform") so it never fights with the
+   hover lift on cards, which uses transform */
+@keyframes fade-up{
+    from{ opacity:0; translate:0 12px; }
+    to{ opacity:1; translate:0 0; }
+}
+
+/* ---------- Bag count bump ----------
+   ANIMATION 4: the Bag count pops when something is added, so you
+   notice it changed even if you weren't looking at the header. */
+.bag-count{
+    display:inline-block;
+}
+
+.bag-count.bump{
+    animation:bump .45s ease;
+}
+
+@keyframes bump{
+    0%{ transform:scale(1); }
+    40%{ transform:scale(1.6); }
+    100%{ transform:scale(1); }
+}
+
+/* ---------- Shake (missing required choice) ----------
+   ANIMATION 5: a short side-to-side shake points at the thing you
+   still need to pick (used for "Select a size"). */
+.shake{
+    animation:shake .4s ease;
+}
+
+@keyframes shake{
+    0%, 100%{ transform:translateX(0); }
+    20%, 60%{ transform:translateX(-6px); }
+    40%, 80%{ transform:translateX(6px); }
+}
+
+/* Loading overlay fades in instead of flashing */
+.search-loading{
+    animation:overlay-in .2s ease-out;
+}
+
+@keyframes overlay-in{
+    from{ opacity:0; }
+    to{ opacity:1; }
+}
+
+/* ---------- Bag panel (A11, from critique) ----------
+   Slides in from the right on every screen size. */
+.mobile-bag{
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    min-width:var(--tap);
+    min-height:var(--tap);
+    color:var(--text);
+    text-decoration:none;
+    font-size:0.875rem;
+}
+
+.bag-overlay{
+    position:fixed;
+    inset:0;
+    z-index:49;
+    background:rgba(0,0,0,.45);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .25s ease;
+}
+
+.bag-overlay.is-open{
+    opacity:1;
+    pointer-events:auto;
+}
+
+.bag-drawer{
+    position:fixed;
+    top:0;
+    right:0;
+    z-index:50;
+    display:flex;
+    flex-direction:column;
+    width:min(380px, 90vw);
+    height:100vh;
+    height:100dvh;
+    background:var(--bg);
+    color:var(--text);
+    box-shadow:-4px 0 16px rgba(0,0,0,.2);
+    transform:translateX(105%);
+    /* ANIMATION: panel slides in from the right, the side the Bag
+       link is on, so it's clear where it came from */
+    transition:transform .3s ease;
+}
+
+.bag-drawer.is-open{
+    transform:translateX(0);
+}
+
+.bag-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 20px;
+    border-bottom:1px solid var(--border);
+}
+
+.bag-header h2{
+    font-size:1.15rem;
+}
+
+.bag-close{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:var(--tap);
+    height:var(--tap);
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+    cursor:pointer;
+}
+
+.bag-items{
+    flex:1;
+    overflow-y:auto;
+    padding:8px 20px;
+    list-style:none;
+}
+
+.bag-item{
+    display:grid;
+    grid-template-columns:64px 1fr auto;
+    align-items:center;
+    gap:12px;
+    padding:12px 0;
+    border-bottom:1px solid var(--border);
+    transition:opacity .25s ease, transform .25s ease;
+}
+
+/* Removed items slide out + fade before they disappear */
+.bag-item.is-removing{
+    opacity:0;
+    transform:translateX(24px);
+}
+
+.bag-item .product-image{
+    aspect-ratio:4 / 5;
+    transition:border-color .2s ease;
+}
+
+.bag-item-name{
+    font-weight:bold;
+}
+
+.bag-item-meta{
+    color:var(--text-muted);
+    font-size:0.8125rem;
+}
+
+/* Quantity stepper:  -  2  +  */
+.qty-stepper{
+    display:inline-flex;
+    align-items:center;
+    margin-top:8px;
+    border:1px solid var(--border-strong);
+}
+
+.qty-stepper button{
+    min-width:2.25rem;
+    min-height:2.25rem;
+    border:0;
+    background:var(--bg);
+    color:var(--text);
+    font-size:1.125rem;
+    cursor:pointer;
+    transition:background-color .2s ease;
+}
+
+.qty-stepper button:hover:not(:disabled){
+    background:var(--hover);
+}
+
+.qty-stepper button:disabled{
+    color:var(--text-muted);
+    opacity:.4;
+    cursor:not-allowed;
+}
+
+.qty-value{
+    min-width:32px;
+    text-align:center;
+    font-weight:bold;
+}
+
+.bag-item{
+    align-items:start !important;
+}
+
+.bag-remove{
+    min-height:var(--tap);
+    padding:0 8px;
+    border:0;
+    background:none;
+    color:var(--text);
+    font-size:0.8125rem;
+    text-decoration:underline;
+    text-underline-offset:3px;
+    cursor:pointer;
+}
+
+.bag-empty{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+    padding:20px;
+    color:var(--text-muted);
+    text-align:center;
+}
+
+.bag-empty[hidden],
+.bag-items[hidden],
+.bag-footer[hidden]{
+    display:none;
+}
+
+.bag-shop-link{
+    display:inline-flex;
+    align-items:center;
+    min-height:var(--tap);
+    padding:0 20px;
+    border:1px solid var(--border-strong);
+    color:var(--text);
+    font-weight:bold;
+    text-decoration:none;
+}
+
+.bag-footer{
+    padding:16px 20px 20px;
+    border-top:1px solid var(--border);
+}
+
+.bag-subtotal{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:8px;
+    font-weight:bold;
+}
+
+.bag-item-price{
+    margin-top:2px;
+    font-size:0.875rem;
+    font-weight:bold;
+}
+
+.bag-status{
+    min-height:1.4em;
+    margin-bottom:8px;
+    font-size:0.875rem;
+}
+
+.bag-checkout{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    min-height:48px;
+    border:1px solid var(--fill);
+    background:var(--fill);
+    color:var(--fill-text);
+    font-weight:bold;
+    cursor:pointer;
+    transition:opacity .2s ease;
+}
+
+.bag-checkout:hover{
+    opacity:.85;
+}
+
+body.bag-open{
+    overflow:hidden;
+}
+
+
+/* =========================================================
+   CRITIQUE ROUND 2 (shared)
+   ========================================================= */
+
+/* Divider line between page sections (Figma "dividing rule").
+   In dark mode this is what replaces the white space you see
+   between sections in light mode. */
+.section + .section{
+    border-top:1px solid var(--border);
+}
+
+/* Dark mode: every picture sits on a lighter frame with a visible
+   outline, so photos don't melt into the black background */
+html.dark .product-image,
+html.dark .related-image,
+html.dark .gallery-main,
+html.dark .gallery-thumbnail,
+html.dark .suggestion-thumb{
+    border-color:var(--border);
+    box-shadow:0 0 0 1px rgba(255,255,255,.04), 0 6px 16px rgba(0,0,0,.45);
+}
+
+html.dark .product-card:hover .product-image{
+    border-color:#9a9a9a;
+}
+
+/* Header, breadcrumb + footer get a clearer edge in dark mode */
+html.dark header,
+html.dark .breadcrumb{
+    border-bottom-color:var(--border);
+}
+
+/* ---------- Page transitions (critique, Group 5) ----------
+   Leaving a page: the loading overlay fades in (above).
+   Arriving on a page: the content fades + slides up a little,
+   so moving between pages feels like one smooth step. */
+main{
+    animation:page-in .4s ease-out both;
+}
+
+@keyframes page-in{
+    from{ opacity:0; translate:0 10px; }
+    to{ opacity:1; translate:0 0; }
+}
+
+/* Thin bar across the top while a new page loads */
+.search-loading::before{
+    content:"";
+    position:fixed;
+    top:0;
+    left:0;
+    height:3px;
+    width:100%;
+    background:var(--text);
+    transform-origin:left;
+    animation:page-progress .9s ease-out forwards;
+}
+
+@keyframes page-progress{
+    from{ transform:scaleX(0); }
+    to{ transform:scaleX(.9); }
+}
+
+/* Spinner turns a bit slower so it looks smooth, not frantic */
+.loading-spinner{
+    animation-duration:1s;
+}
+
+
+/* ---------- Quick add (critique round 2) ---------- */
+.product-image{
+    position:relative;
+}
+
+/* Always visible on phones (no hover there); on desktop it slides
+   up when you hover or tab to the card */
+.quick-add-button{
+    position:absolute;
+    right:8px;
+    bottom:8px;
+    z-index:2;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    min-width:var(--tap);
+    min-height:var(--tap);
+    padding:0 10px;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+    font-size:0.8125rem;
+    font-weight:bold;
+    box-shadow:0 2px 8px rgba(0,0,0,.25);
+    cursor:pointer;
+    transition:opacity .2s ease, transform .2s ease, background-color .2s ease, color .2s ease;
+}
+
+.quick-add-button span{
+    display:none;
+}
+
+.quick-add-button:hover{
+    background:var(--fill);
+    color:var(--fill-text);
+}
+
+.quick-add{
+    width:min(640px, calc(100vw - 32px));
+    max-height:calc(100dvh - 32px);
+    margin:auto;
+    padding:0;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+}
+
+.quick-add[open]{
+    animation:dialog-pop .2s ease-out;
+}
+
+@keyframes dialog-pop{
+    from{ opacity:0; transform:scale(.96); }
+    to{ opacity:1; transform:scale(1); }
+}
+
+.quick-add::backdrop{
+    background:rgba(0,0,0,.5);
+}
+
+.quick-add-inner{
+    position:relative;
+    display:grid;
+    grid-template-columns:110px 1fr;
+    gap:16px;
+    padding:20px;
+}
+
+.quick-add-close{
+    position:absolute;
+    top:8px;
+    right:8px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:var(--tap);
+    height:var(--tap);
+    border:0;
+    background:none;
+    color:var(--text);
+    cursor:pointer;
+}
+
+.quick-add-image{
+    align-self:start;
+}
+
+.quick-add-info h2{
+    margin:4px 48px 4px 0;
+    font-size:1.1rem;
+}
+
+.quick-add-label{
+    margin:12px 0 8px;
+    font-size:.9rem;
+    font-weight:bold;
+}
+
+.quick-add-sizes{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+
+/* Size buttons in quick add match the product page */
+.quick-add .size-button{
+    display:inline-flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-width:48px;
+    min-height:var(--tap);
+    padding:4px 6px;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+    cursor:pointer;
+}
+
+.quick-add .size-button[aria-pressed="true"]{
+    background:var(--fill);
+    color:var(--fill-text);
+    font-weight:bold;
+}
+
+.quick-add .size-button.is-sold-out{
+    border-color:var(--border);
+    background:var(--surface);
+    color:var(--text-muted);
+    text-decoration:line-through;
+    cursor:not-allowed;
+}
+
+.quick-add .sold-tag{
+    font-size:0.625rem;
+    line-height:1.1;
+    text-decoration:none;
+}
+
+.quick-add-sizes.has-error .size-button:not(.is-sold-out){
+    border-color:var(--error);
+}
+
+.quick-add-note{
+    min-height:1.4em;
+    margin-top:8px;
+    color:var(--text-muted);
+    font-size:.85rem;
+}
+
+.quick-add-note.is-error{
+    color:var(--error);
+    font-weight:bold;
+}
+
+.quick-add-submit{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    min-height:48px;
+    margin-top:12px;
+    border:1px solid var(--fill);
+    background:var(--fill);
+    color:var(--fill-text);
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.quick-add-submit:disabled{
+    cursor:progress;
+}
+
+.quick-add-details{
+    display:inline-flex;
+    align-items:center;
+    min-height:var(--tap);
+    margin-top:4px;
+    color:var(--text);
+    font-size:.85rem;
+    text-underline-offset:3px;
+}
+
+@media(min-width:37.5em){
+    .quick-add-inner{
+        grid-template-columns:200px 1fr;
+        gap:24px;
+        padding:24px;
+    }
+
+    .quick-add-button span{
+        display:inline;
+    }
+}
+
+/* Mouse users: show Quick add on hover/focus only */
+@media(hover:hover) and (min-width:600px){
+    .quick-add-button{
+        opacity:0;
+        transform:translateY(6px);
+    }
+
+    .product-card:hover .quick-add-button,
+    .product-card:focus-within .quick-add-button,
+    .quick-add-button:focus-visible{
+        opacity:1;
+        transform:translateY(0);
+    }
+}
+
 /* Hide the scrollbar on phones only (Figma spec: scroll
    without a visible scrollbar on mobile) */
-@media(max-width:599.98px){
+@media(max-width:37.49em){
     html{
         scrollbar-width:none;
     }
@@ -513,13 +1367,14 @@ footer a{
 }
 
 /* ---------- Tablet: 600px and up ---------- */
-@media(min-width:600px){
+@media(min-width:37.5em){
     :root{
         --gutter:24px;
     }
 
     /* Swap the hamburger header for the real navbar */
     .mobile-header,
+    .mobile-search,
     .mobile-sidebar,
     .mobile-overlay.is-open{
         display:none;
@@ -547,23 +1402,28 @@ footer a{
 }
 
 /* ---------- Desktop: 905px and up ---------- */
-@media(min-width:905px){
+@media(min-width:56.5625em){
     :root{
         --gutter:32px;
     }
 
     /* Full horizontal navigation, always visible */
+    /* A13: allowed to wrap onto a 2nd row when text is enlarged,
+       instead of pushing "Bag" off the right edge */
     .navbar{
         flex-direction:row;
+        flex-wrap:wrap;
         justify-content:space-between;
+        row-gap:.75rem;
     }
 
     .right-nav{
-        flex-wrap:nowrap;
+        flex-wrap:wrap;
+        justify-content:flex-end;
     }
 
     .search-container{
-        width:300px;
+        width:18.75rem;   /* A13: rem so it widens with larger text */
     }
 
     .product-grid{
@@ -597,19 +1457,35 @@ footer a{
     align-items:center;
     justify-content:center;
     height:40vh;
-    min-height:260px;
+    min-height:20rem;   /* A13: rem so it grows with larger text */
     margin:var(--gutter) var(--gutter) 0;
     overflow:hidden;
     background:var(--surface-2);
     border:1px solid var(--border);
 }
 
-.hero-image{
+/* A11 (critique): the whole picture is a link to the product */
+.hero-link{
     position:absolute;
     inset:0;
+    display:block;
+}
+
+.hero-image{
     width:100%;
     height:100%;
     object-fit:cover;
+    transition:transform .6s ease;
+}
+
+/* No "Image unavailable" text here; the caption already explains it */
+.hero-link.is-broken-img::before{
+    content:none;
+}
+
+/* Slow zoom on hover hints that the picture is clickable */
+.hero-link:hover .hero-image{
+    transform:scale(1.03);
 }
 
 .hero-image.is-changing{
@@ -621,59 +1497,200 @@ footer a{
     to{ opacity:1; }
 }
 
-/* Dark gradient so the white caption is always readable */
+/* Dark gradient so the white caption is always readable
+   (pointer-events:none so clicks still reach the link) */
 .hero::after{
     content:"";
     position:absolute;
     inset:0;
     background:linear-gradient(90deg,rgba(0,0,0,.45),rgba(0,0,0,.05));
+    pointer-events:none;
+}
+
+.hero-content{
+    position:relative;
+    z-index:2;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+    max-width:calc(100% - 120px); /* never under the arrows */
+    /* A13: keeps the caption + Shop button above the Pause/dots row,
+       even at 200% zoom on a small phone */
+    padding-bottom:calc(var(--tap) + 1.5rem);
+    pointer-events:none; /* let clicks through to the picture... */
 }
 
 .hero h1{
-    position:relative;
-    z-index:1;
-    max-width:90%;
     color:#fff;
     font-size:1.5rem;
     text-align:center;
     text-shadow:0 2px 8px rgba(0,0,0,.5);
 }
 
-/* Controls sit inside the hero, bottom left (same as Figma) */
-.hero-controls{
-    position:absolute;
-    z-index:2;
-    bottom:12px;
-    left:12px;
-    display:flex;
-    flex-wrap:wrap;
+/* "Shop now" button on each slide */
+.hero-cta{
+    display:inline-flex;
     align-items:center;
-    gap:8px;
+    min-height:var(--tap);
+    padding:0 20px;
+    border:1px solid #fff;
+    background:#fff;
+    color:#222;
+    font-weight:bold;
+    text-decoration:none;
+    pointer-events:auto; /* ...except on the button itself */
+    transition:background-color .2s ease, color .2s ease;
 }
 
-/* NEW: position dots in a bordered chip, like the Figma hero */
+.hero-cta:hover{
+    background:transparent;
+    color:#fff;
+}
+
+/* A11 (critique): arrows on the left + right edges, centered */
+.hero-arrow{
+    position:absolute;
+    z-index:3;
+    top:50%;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:var(--tap);
+    height:var(--tap);
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+    cursor:pointer;
+    transform:translateY(-50%);
+    transition:background-color .2s ease, color .2s ease, box-shadow .2s ease;
+}
+
+.hero-arrow:hover{
+    background:var(--fill);
+    color:var(--fill-text);
+}
+
+.hero-previous{
+    left:8px;
+}
+
+.hero-next{
+    right:8px;
+}
+
+/* Pause + slide dots together, bottom center */
+.hero-controls{
+    position:absolute;
+    z-index:3;
+    bottom:16px;
+    left:50%;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    transform:translateX(-50%);
+}
+
 .hero-dots{
     display:inline-flex;
     align-items:center;
-    gap:6px;
     min-height:var(--tap);
-    padding:0 12px;
+    padding:0 4px;
     border:1px solid var(--border-strong);
     background:var(--bg);
 }
 
+/* Each dot is a 28px tap target with a small visible dot inside */
 .hero-dot{
+    position:relative;
+    width:28px;
+    height:var(--tap);
+    border:0;
+    background:none;
+    cursor:pointer;
+}
+
+.hero-dot::before{
+    content:"";
+    position:absolute;
+    top:50%;
+    left:50%;
     width:8px;
     height:8px;
     border:1px solid var(--text);
     border-radius:50%;
+    transform:translate(-50%,-50%);
+    transition:background-color .2s ease, width .2s ease;
 }
 
-.hero-dot.is-active{
+.hero-dot.is-active::before{
+    width:18px;
+    border-radius:4px;
     background:var(--text);
 }
 
-@media(min-width:600px){
+/* Progress bar: fills until the slide changes.
+   Critique was split: Group 5 liked this timer, Group 4 suggested
+   removing it. We kept it (it tells you when the slide will change)
+   but made it thinner + softer so it's less distracting. It also
+   stops when you pause the slideshow. */
+.hero-progress{
+    position:absolute;
+    z-index:3;
+    right:0;
+    bottom:0;
+    left:0;
+    height:2px;
+    background:rgba(255,255,255,.18);
+}
+
+.hero-progress span{
+    display:block;
+    width:100%;
+    height:100%;
+    background:rgba(255,255,255,.75);
+    transform:scaleX(0);
+    transform-origin:left;
+}
+
+.hero-progress span.is-running{
+    animation:hero-progress var(--hero-interval, 8s) linear forwards;
+}
+
+.hero.is-paused .hero-progress{
+    opacity:0;
+}
+
+@keyframes hero-progress{
+    to{ transform:scaleX(1); }
+}
+
+
+/* Critique (Group 4): drop shadow on the carousel buttons so they
+   stand out from busy photos */
+.hero-arrow,
+.hero-pause,
+.hero-dots,
+.hero-cta{
+    box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+
+.hero-arrow:hover,
+.hero-pause:hover,
+.hero-cta:hover{
+    box-shadow:0 4px 14px rgba(0,0,0,.45);
+}
+
+/* Featured product cards fade up when the page loads */
+.section .product-card{
+    animation:fade-up .4s ease-out both;
+}
+
+.section .product-card:nth-child(2){ animation-delay:.05s; }
+.section .product-card:nth-child(3){ animation-delay:.1s; }
+.section .product-card:nth-child(4){ animation-delay:.15s; }
+
+@media(min-width:37.5em){
     .hero{
         height:55vh;
     }
@@ -682,39 +1699,224 @@ footer a{
         font-size:2rem;
     }
 
+    .hero-previous{
+        left:16px;
+    }
+
+    .hero-next{
+        right:16px;
+    }
+
     .hero-controls{
         bottom:20px;
-        left:20px;
-        gap:10px;
     }
 }
 
-@media(min-width:905px){
+@media(min-width:56.5625em){
     /* Figma: hero is about two-thirds of the viewport height */
     .hero{
         height:65vh;
     }
 }
 
+
+/* =========================================================
+   A13: ACCESSIBILITY + DARK MODE
+   ========================================================= */
+
+/* Text sizes are in rem (relative to the browser's font size), so
+   they grow when someone zooms or sets a larger default font. */
+html{
+    font-size:100%;
+    color-scheme:light;
+}
+
+html.dark{
+    color-scheme:dark;
+}
+
+/* ---------- Dark mode switch ---------- */
+.dark-btn{
+    gap:.5rem;
+    white-space:nowrap;
+}
+
+.switch-track{
+    position:relative;
+    display:inline-block;
+    flex-shrink:0;
+    width:2.25rem;
+    height:1.25rem;
+    border:2px solid currentColor;
+    border-radius:1rem;
+    transition:background-color .2s ease;
+}
+
+.switch-thumb{
+    position:absolute;
+    top:50%;
+    left:2px;
+    width:.75rem;
+    height:.75rem;
+    border-radius:50%;
+    background:currentColor;
+    transform:translateY(-50%);
+    transition:left .2s ease, background-color .2s ease;
+}
+
+/* ON: track fills in, knob slides right + turns the background color */
+.dark-btn[aria-checked="true"] .switch-track{
+    background:currentColor;
+}
+
+.dark-btn[aria-checked="true"] .switch-thumb{
+    left:calc(100% - .75rem - 2px);
+    background:var(--bg);
+}
+
+.dark-btn:hover[aria-checked="true"] .switch-thumb{
+    background:var(--fill);
+}
+
+.switch-state{
+    min-width:1.6em;
+    font-size:.8125rem;
+    font-weight:bold;
+    text-align:left;
+}
+
+.theme-icon{
+    flex-shrink:0;
+}
+
+/* Mobile menu: switch row spans the width, state on the right */
+.mobile-sidebar .dark-btn{
+    justify-content:flex-start;
+}
+
+.mobile-sidebar .dark-btn .switch-track{
+    margin-left:auto;
+}
+
+/* ---------- Hero caption contrast ----------
+   White text sits on a 65% black plate, so it passes 4.5:1 on ANY
+   photo (even a white one, or if the photo fails to load). */
+.hero h1{
+    padding:.2em .5em;
+    background:rgba(0,0,0,.65);
+}
+
+/* Image links: draw the focus ring inside (the hero clips overflow) */
+.hero-link:focus-visible{
+    outline-offset:-6px;
+    box-shadow:none;
+}
+
+/* Main gets focus from the skip link; no ring needed on the region */
+main:focus{
+    outline:none;
+}
+
+/* Dark mode: brighter error/success icons inside form fields so
+   they keep 3:1 against the dark input background */
+html.dark .field.is-invalid .field-icon{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%23f2b8b5'/%3E%3Cpath d='M12 7v6M12 16.5v.5' stroke='%23121212' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+html.dark .field.is-valid .field-icon{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%2381c995'/%3E%3Cpath d='M7.5 12.5l3 3 6-6.5' fill='none' stroke='%23121212' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Windows High Contrast / forced colors: keep the switch + focus visible */
+@media (forced-colors: active){
+    .switch-track,
+    .switch-thumb{
+        forced-color-adjust:none;
+        border-color:ButtonText;
+    }
+
+    .switch-thumb,
+    .dark-btn[aria-checked="true"] .switch-track{
+        background:ButtonText;
+    }
+}
+
+/* A13 (200% zoom check): tiny thumbnails are too small for the
+   "Image unavailable" text, so they just show the grey box */
+.gallery-thumbnail.is-broken-img::before{
+    content:"";
+}
+
+/* A13: on very narrow screens (or 200% zoom on a phone) the hero
+   gets taller instead of letting things overlap */
+@media(max-width:24em){
+    .hero{
+        height:auto;
+        min-height:24rem;
+        padding:1rem 0;
+    }
+
+    .hero h1{
+        font-size:1.25rem;
+    }
+}
+
+.hero-cta{
+    justify-content:center;
+    text-align:center;
+}
 </style>
 </head>
-<body>
+<body data-page="home">
+
+<!-- A13: lets keyboard + screen reader users jump past the header -->
+<a class="skip-link" href="#main">Skip to main content</a>
 
 <!-- Loading overlay: shown for a moment before moving to a new page
      (simulates the loading state from the Figma prototype) -->
 <div class="search-loading" role="status" aria-live="polite" hidden>
     <span class="loading-spinner" aria-hidden="true"></span>
-    <span>Loading results...</span>
+    <span class="loading-text">Loading results...</span>
 </div>
 
 <header>
 
     <!-- MOBILE HEADER (under 600px): hamburger + logo -->
     <div class="mobile-header">
+        <!-- A11: bag icon on the right of the mobile header (Figma) -->
+        <a class="mobile-bag bag-link" href="#bag-drawer" aria-controls="bag-drawer" aria-label="Open bag">
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1 12H7L6 8z M9 8V6a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span class="bag-count">0</span>
+        </a>
         <a class="logo" href="homepage.html" aria-label="ZARA homepage">ZARA</a>
         <button class="mobile-menu-button" type="button" aria-expanded="false" aria-controls="mobile-sidebar" aria-label="Open menu">
             <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
+    </div>
+
+    <!-- NEW (A11): search bar sits right under the mobile header, like the
+         Figma mobile screens (it used to be hidden inside the menu) -->
+    <div class="mobile-search">
+            <div class="search-container">
+                <!-- Magnifier icon (decorative) -->
+                <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <input
+                    class="search-box"
+                    type="text"
+                    role="combobox"
+                    placeholder="Search for an item"
+                    aria-label="Search for an item"
+                    aria-autocomplete="list"
+                    aria-expanded="false"
+                    aria-controls="mobile-search-suggestions"
+                    autocomplete="off">
+                <!-- NEW (A11): clear button, appears once you type -->
+                <button class="search-clear" type="button" aria-label="Clear search" hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                </button>
+                <!-- Suggestions are built by the script as you type -->
+                <div class="search-suggestions" id="mobile-search-suggestions" role="listbox" aria-label="Search suggestions" hidden></div>
+            </div>
     </div>
 
     <!-- DESKTOP NAVBAR (600px and up): full horizontal navigation -->
@@ -736,24 +1938,39 @@ footer a{
         <div class="right-nav">
 
             <div class="search-container">
+                <!-- Magnifier icon (decorative) -->
+                <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                 <input
                     class="search-box"
                     type="text"
+                    role="combobox"
                     placeholder="Search for an item"
                     aria-label="Search for an item"
+                    aria-autocomplete="list"
                     aria-expanded="false"
                     aria-controls="search-suggestions"
                     autocomplete="off">
-                <ul class="search-suggestions" id="search-suggestions" role="listbox" aria-label="Search suggestions" hidden></ul>
+                <!-- NEW (A11): clear button, appears once you type -->
+                <button class="search-clear" type="button" aria-label="Clear search" hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                </button>
+                <!-- Suggestions are built by the script as you type -->
+                <div class="search-suggestions" id="search-suggestions" role="listbox" aria-label="Search suggestions" hidden></div>
             </div>
 
             <!-- Label switches between "Dark mode" and "Light mode" (JS) -->
-            <button class="dark-btn" type="button">Dark mode</button>
+            <button class="dark-btn" type="button" role="switch" aria-checked="false">
+                <!-- A13: a real on/off switch, so you can SEE which mode is on -->
+                <svg class="theme-icon" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                <span class="theme-label">Dark mode</span>
+                <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                <span class="switch-state" aria-hidden="true">Off</span>
+            </button>
 
-            <!-- TODO: Account page is not built yet (placeholder link) -->
-            <a class="icon-link" href="#">Account</a>
-            <!-- Bag count is saved in localStorage so it matches on every page -->
-            <a class="icon-link" href="#">Bag (<span class="bag-count">0</span>)</a>
+            <!-- A12: Account opens the Create account form -->
+            <a class="icon-link account-link" href="account.html">Account</a>
+            <!-- A11 (critique): Bag now opens a working bag panel -->
+            <a class="icon-link bag-link" href="#bag-drawer" aria-controls="bag-drawer">Bag (<span class="bag-count">0</span>)</a>
 
         </div>
 
@@ -770,27 +1987,68 @@ footer a{
             <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
     </div>
-    <div class="search-container">
-        <input
-            class="search-box"
-            type="text"
-            placeholder="Search for an item"
-            aria-label="Search for an item"
-            aria-expanded="false"
-            aria-controls="mobile-search-suggestions"
-            autocomplete="off">
-        <ul class="search-suggestions" id="mobile-search-suggestions" role="listbox" aria-label="Search suggestions" hidden></ul>
-    </div>
     <ul class="nav-links">
         <li><a href="productpage.html?category=Woman">Woman</a></li>
         <li><a href="productpage.html?category=Man">Man</a></li>
         <li><a href="productpage.html?category=Kids">Kids</a></li>
         <li><a href="productpage.html?category=Sale">Sale</a></li>
     </ul>
-    <button class="dark-btn" type="button">Dark mode</button>
-    <a class="icon-link" href="#">Account</a>
-    <a class="icon-link" href="#">Bag (<span class="bag-count">0</span>)</a>
+    <button class="dark-btn" type="button" role="switch" aria-checked="false">
+                <!-- A13: a real on/off switch, so you can SEE which mode is on -->
+                <svg class="theme-icon" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                <span class="theme-label">Dark mode</span>
+                <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                <span class="switch-state" aria-hidden="true">Off</span>
+            </button>
+    <a class="icon-link account-link" href="account.html">Account</a>
+    <a class="icon-link bag-link" href="#bag-drawer" aria-controls="bag-drawer">Bag (<span class="bag-count">0</span>)</a>
 </aside>
+
+<!-- A11 (critique: "have a working bag section"): slide-in bag panel.
+     Opens from any Bag link, lists what you added, lets you remove
+     items, and has a demo checkout with a loading state. -->
+<div class="bag-overlay" aria-hidden="true"></div>
+<aside class="bag-drawer" id="bag-drawer" aria-label="Shopping bag" aria-hidden="true">
+    <div class="bag-header">
+        <h2>Bag (<span class="bag-count">0</span>)</h2>
+        <button class="bag-close" type="button" aria-label="Close bag">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+    </div>
+    <ul class="bag-items"></ul>
+    <div class="bag-empty">
+        <p>Your bag is empty.</p>
+        <a class="bag-shop-link" href="productpage.html">Start shopping</a>
+    </div>
+    <div class="bag-footer">
+        <!-- A12: subtotal so the bag works like a real one -->
+        <p class="bag-subtotal"><span>Subtotal</span><span class="bag-subtotal-amount">$0.00</span></p>
+        <p class="bag-status" role="status" aria-live="polite"></p>
+        <button class="bag-checkout" type="button">Checkout</button>
+    </div>
+</aside>
+
+<!-- Critique (Group 10): "Limit the amount of window transitions to get
+     to certain parts of the website." Quick add lets you pick a size +
+     add to the bag straight from a product card, without opening the
+     product page. -->
+<dialog class="quick-add" id="quick-add" aria-labelledby="quick-add-title">
+    <div class="quick-add-inner">
+        <button class="quick-add-close" type="button" aria-label="Close quick add">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="quick-add-image product-image"><img alt=""></div>
+        <div class="quick-add-info">
+            <h2 id="quick-add-title"></h2>
+            <p class="quick-add-price price"></p>
+            <p class="quick-add-label">Select size</p>
+            <div class="quick-add-sizes" role="group" aria-label="Choose a size"></div>
+            <p class="quick-add-note" role="status" aria-live="polite">Select a size to continue.</p>
+            <button class="quick-add-submit" type="button">Add to bag</button>
+            <a class="quick-add-details" href="#">View full details</a>
+        </div>
+    </div>
+</dialog>
 <!-- NOT BUILT YET: the Figma mobile screens also have a bottom tab bar
      (Home, Search, Saved, Account). It is not part of this submission. -->
 
@@ -798,29 +2056,48 @@ footer a{
     <span aria-current="page">Home</span>
 </div>
 
-<main>
+<main id="main" tabindex="-1">
 
-<section class="hero" aria-label="Featured looks">
+<!-- A11 (critique):
+     - Nate (Group 9): "Make the hero pictures clickable to send it to a
+       product page" -> every slide now opens its product, and has a
+       "Shop now" button so it's obvious it's clickable.
+     - Lamar (Group 11): "Change the placement of the hero's arrows and
+       picture rotation" -> arrows moved to the left/right edges (where
+       people expect them) and the slide dots + pause sit together at
+       the bottom center. The dots are now clickable too. -->
+<section class="hero" aria-label="Featured looks" aria-roledescription="carousel">
 
-    <img
-        class="hero-image"
-        src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&amp;fit=crop&amp;w=1600&amp;q=80"
-        alt="Fashion shoppers browsing a clothing collection">
-    <!-- FIX: caption typo ("Stykles") and it now matches slide 1 in the script -->
-    <h1>ZARA's newest styles</h1>
+    <a class="hero-link" href="product.html?item=Linen%20Dress" aria-label="Shop Linen Dress">
+        <img
+            class="hero-image"
+            src="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&amp;fit=crop&amp;w=1600&amp;q=80"
+            alt="Model wearing a summer dress">
+    </a>
+
+    <div class="hero-content">
+        <h1>ZARA's newest styles</h1>
+        <a class="hero-cta" href="product.html?item=Linen%20Dress">Shop Linen Dress</a>
+    </div>
+
+    <button class="hero-arrow hero-previous" type="button" aria-label="Previous slide">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="hero-arrow hero-next" type="button" aria-label="Next slide">
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
 
     <div class="hero-controls">
-
         <button class="hero-pause" type="button" aria-label="Pause slideshow">Pause</button>
-        <button class="hero-previous" type="button" aria-label="Previous slide">&lt;</button>
-        <button class="hero-next" type="button" aria-label="Next slide">&gt;</button>
-        <span class="hero-dots" aria-hidden="true">
-            <span class="hero-dot is-active"></span>
-            <span class="hero-dot"></span>
-            <span class="hero-dot"></span>
-        </span>
-
+        <div class="hero-dots" role="group" aria-label="Choose slide">
+            <button class="hero-dot is-active" type="button" aria-label="Slide 1" aria-current="true"></button>
+            <button class="hero-dot" type="button" aria-label="Slide 2" aria-current="false"></button>
+            <button class="hero-dot" type="button" aria-label="Slide 3" aria-current="false"></button>
+        </div>
     </div>
+
+    <!-- Thin bar that fills up until the next slide (shows the timing) -->
+    <div class="hero-progress" aria-hidden="true"><span></span></div>
 
 </section>
 
@@ -835,7 +2112,7 @@ footer a{
                 <img src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Model wearing a seasonal outfit">
             </div>
             <h3>Shirt</h3>
-            <p class="price">$00.00</p>
+            <p class="price"></p>
         </div>
 
         <div class="product-card">
@@ -843,7 +2120,7 @@ footer a{
                 <img src="https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Denim jeans">
             </div>
             <h3>Jeans</h3>
-            <p class="price">$00.00</p>
+            <p class="price"></p>
         </div>
 
         <div class="product-card">
@@ -851,7 +2128,7 @@ footer a{
                 <img src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Casual T-shirt">
             </div>
             <h3>T-Shirt</h3>
-            <p class="price">$00.00</p>
+            <p class="price"></p>
         </div>
 
         <div class="product-card">
@@ -859,7 +2136,7 @@ footer a{
                 <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Red sneaker">
             </div>
             <h3>Sneakers</h3>
-            <p class="price">$00.00</p>
+            <p class="price"></p>
         </div>
 
     </div>
@@ -877,7 +2154,7 @@ footer a{
                 <img src="https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Handbag">
             </div>
             <h3>Handbag</h3>
-            <p class="price">$00.00</p>
+            <p class="price"></p>
         </div>
 
         <div class="product-card">
@@ -885,7 +2162,7 @@ footer a{
                 <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Model wearing a fashion outfit">
             </div>
             <h3>Joggers</h3>
-            <p class="price">$00.00</p>
+            <p class="price"></p>
         </div>
 
         <div class="product-card">
@@ -893,7 +2170,7 @@ footer a{
                 <img src="https://images.unsplash.com/photo-1548126032-079a0fb0099d?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Fashion clothing">
             </div>
             <h3>Puffer Jacket</h3>
-            <p class="price">$00.00</p>
+            <p class="price"></p>
         </div>
 
         <!-- FIX: was "Temp Picture Repeat" (placeholder name) -->
@@ -902,7 +2179,7 @@ footer a{
                 <img src="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&amp;fit=crop&amp;w=600&amp;q=80" alt="Model wearing a summer dress">
             </div>
             <h3>Linen Dress</h3>
-            <p class="price">$00.00</p>
+            <p class="price"></p>
         </div>
 
     </div>
@@ -935,11 +2212,16 @@ footer a{
 const THEME_KEY = "zara-theme";
 const darkButtons = document.querySelectorAll(".dark-btn");
 
+/* A13: no saved choice yet = follow the device's light/dark setting */
+function getSystemTheme(){
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 function getSavedTheme(){
     try{
-        return localStorage.getItem(THEME_KEY) || "light";
+        return localStorage.getItem(THEME_KEY) || getSystemTheme();
     }catch(error){
-        return "light";
+        return getSystemTheme();
     }
 }
 
@@ -955,10 +2237,17 @@ function applyTheme(theme){
     const isDark = theme === "dark";
     document.documentElement.classList.toggle("dark", isDark);
 
-    /* Button says what it will switch TO, like the Figma toggle */
+    /* A13: the switch shows the CURRENT mode. Before, the button said
+       what it would switch to ("Light mode" while dark), which read
+       backwards. Now: knob slides right + "On" when dark is active,
+       and screen readers hear "Dark mode, switch, on/off". */
     darkButtons.forEach(button => {
-        button.textContent = isDark ? "Light mode" : "Dark mode";
+        button.setAttribute("aria-checked", String(isDark));
+        button.querySelector(".switch-state").textContent = isDark ? "On" : "Off";
+        button.title = isDark ? "Dark mode is on. Click to turn it off." : "Dark mode is off. Click to turn it on.";
     });
+    /* tell the browser too, so scrollbars + form controls match */
+    document.documentElement.style.colorScheme = isDark ? "dark" : "light";
 }
 
 applyTheme(getSavedTheme());
@@ -974,40 +2263,178 @@ darkButtons.forEach(button => {
 /* Keep other open tabs of the site in sync */
 window.addEventListener("storage", event => {
     if(event.key === THEME_KEY){
-        applyTheme(event.newValue || "light");
+        applyTheme(event.newValue || getSystemTheme());
     }
 });
 
-/* ---------- Bag count (shared across pages) ---------- */
-const BAG_KEY = "zara-bag-count";
+/* ---------- Product catalog (A11) ----------
+   One list of products that search, suggestions, the results page
+   and the product page all read from, so they always agree.
+   A12 (feedback): real prices replace the $00.00 placeholders. Our
+   group told Lamar to swap placeholders for real content, so we did
+   the same. Sale items show a crossed-out old price. */
+const IMG = id => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=600&q=80`;
+const THUMB = id => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=120&q=60`;
 
-function getBagCount(){
+const PRODUCTS = [
+    {name:"Shirt",             price:35.90, type:"Tops",        keywords:["shirt","top","blouse"],              categories:["Woman"],                 image:"1529139574466-a303027c1d8b", alt:"Model wearing a seasonal outfit"},
+    {name:"Jeans",             price:49.90, type:"Bottoms",     keywords:["jeans","denim","pants"],             categories:["Woman","Man"],           image:"1541099649105-f69ad21f3246", alt:"Denim jeans"},
+    {name:"T-Shirt",           price:19.90, type:"Tops",        keywords:["t-shirt","tee","top","shirt"],       categories:["Man","Kids"],            image:"1521572163474-6864f9cf17ab", alt:"Casual T-shirt"},
+    {name:"Sneakers",          price:69.90, was:89.90, type:"Shoes",       keywords:["sneakers","shoes","trainers"],       categories:["Man","Kids","Sale"],     image:"1542291026-7eec264c27ff",    alt:"Red sneaker"},
+    {name:"Handbag",           price:45.90, was:59.90, type:"Bags",        keywords:["bag","handbag","purse"],             categories:["Woman","Sale"],          image:"1548036328-c9fa89d128fa",    alt:"Handbag"},
+    {name:"Joggers",           price:39.90, type:"Bottoms",     keywords:["joggers","pants","sweatpants"],      categories:["Woman","Kids"],          image:"1515886657613-9f3515b0c78f", alt:"Model wearing a fashion outfit"},
+    {name:"Puffer Jacket",     price:89.90, type:"Outerwear",   keywords:["jacket","coat","puffer","winter"],   categories:["Man","Kids"],            image:"1548126032-079a0fb0099d",    alt:"Fashion clothing"},
+    {name:"Linen Dress",       price:59.90, type:"Dresses",     keywords:["dress","dresses","linen","summer"],  categories:["Woman"],                 image:"1539109136881-3be0616acf4b", alt:"Model wearing a summer dress"},
+    {name:"Leather Jacket",    price:129.00, was:169.00, type:"Outerwear",   keywords:["jacket","coat","leather"],           categories:["Woman","Man","Sale"],    image:"1551028719-00167b16eac5",    alt:"Leather jacket"},
+    {name:"Everyday Backpack", price:49.90, type:"Bags",        keywords:["bag","backpack","school"],           categories:["Man","Kids"],            image:"1553062407-98eeb64c6a62",    alt:"Everyday backpack"},
+    {name:"Canvas Sneakers",   price:45.90, was:59.90, type:"Shoes",       keywords:["sneakers","shoes","canvas"],         categories:["Woman","Kids","Sale"],   image:"1525966222134-fcfa99b8ae77", alt:"Canvas sneakers"}
+];
+
+/* Popular searches shown as suggestions when they match what you type */
+const SEARCH_TERMS = ["Dresses", "Jeans", "T-shirts", "Jackets", "Sneakers", "Bags", "Sale"];
+
+function normalize(text){
+    return text.toLowerCase().trim();
+}
+
+/* A product matches when EVERY word you typed appears somewhere in
+   its name, type, keywords or categories ("red shoes" style search).
+   Plural words also match their singular ("dresses" -> "dress"). */
+function productMatches(product, query){
+    const haystack = normalize([product.name, product.type, ...product.keywords, ...product.categories].join(" "));
+    return normalize(query).split(/\s+/).filter(Boolean).every(word =>
+        haystack.includes(word) || haystack.includes(word.replace(/e?s$/, ""))
+    );
+}
+
+function searchProducts(query, category){
+    return PRODUCTS.filter(product =>
+        (!category || product.categories.includes(category)) &&
+        (!normalize(query) || productMatches(product, query))
+    );
+}
+
+function findProduct(name){
+    return PRODUCTS.find(product => normalize(product.name) === normalize(name || ""));
+}
+
+/* $59.90 style money formatting */
+function formatPrice(amount){
+    return `$${amount.toFixed(2)}`;
+}
+
+/* Fills a price element: sale items get the old price crossed out */
+function fillPrice(element, product){
+    element.replaceChildren();
+    if(product.was){
+        const was = document.createElement("s");
+        was.className = "price-was";
+        was.textContent = formatPrice(product.was);
+        element.append(was, " ");
+    }
+    element.append(formatPrice(product.price));
+}
+
+/* ---------- Image loading states (A11) ----------
+   While an image downloads, its frame shows a shimmer (loading).
+   If it fails, the frame says "Image unavailable" (failed action
+   feedback) instead of a broken-image icon. */
+function watchImage(image){
+    const frame = image.parentElement;
+    frame.classList.remove("is-broken-img");
+
+    if(image.complete && image.naturalWidth > 0){
+        frame.classList.remove("is-loading-img");
+        return;
+    }
+
+    frame.classList.add("is-loading-img");
+    image.addEventListener("load", () => frame.classList.remove("is-loading-img"), {once:true});
+    image.addEventListener("error", () => {
+        frame.classList.remove("is-loading-img");
+        frame.classList.add("is-broken-img");
+    }, {once:true});
+}
+
+function watchImages(root = document){
+    root.querySelectorAll(".product-image img, .gallery-main img, .gallery-thumbnail img, .related-image img, .suggestion-thumb img")
+        .forEach(watchImage);
+}
+
+/* Swap an image and show the shimmer again until the new one loads */
+function setImageSource(image, src, alt){
+    image.src = src;
+    if(alt !== undefined){
+        image.alt = alt;
+    }
+    watchImage(image);
+}
+
+/* ---------- Shopping bag (A11, from critique) ----------
+   Critique (Nate, Group 9): "Have a working bag section."
+   The bag now stores the actual items (name, size, color, quantity)
+   in localStorage, so it's the same on every page. The Bag link
+   opens a slide-in bag panel (built further down). */
+const BAG_KEY = "zara-bag-items";
+
+function getBagItems(){
     try{
-        return Number(localStorage.getItem(BAG_KEY)) || 0;
+        return JSON.parse(localStorage.getItem(BAG_KEY)) || [];
     }catch(error){
-        return 0;
+        return [];
     }
 }
 
-function setBagCount(count){
+function saveBagItems(items){
     try{
-        localStorage.setItem(BAG_KEY, String(count));
+        localStorage.setItem(BAG_KEY, JSON.stringify(items));
     }catch(error){
-        /* storage blocked: count still updates on this page */
+        /* storage blocked: bag still works until the page changes */
     }
+}
+
+function getBagCount(){
+    return getBagItems().reduce((total, item) => total + item.qty, 0);
+}
+
+/* Updates every "Bag (n)" counter. bump:true plays the pop animation. */
+function updateBagCount(options = {}){
+    const count = getBagCount();
     document.querySelectorAll(".bag-count").forEach(counter => {
         counter.textContent = count;
+        if(options.bump){
+            /* restart the bump animation every time */
+            counter.classList.remove("bump");
+            void counter.offsetWidth;
+            counter.classList.add("bump");
+        }
     });
 }
 
-setBagCount(getBagCount());
+/* Same product + size + color = increase quantity instead of a new row */
+function addBagItem(newItem){
+    const items = getBagItems();
+    const existing = items.find(item =>
+        item.name === newItem.name && item.size === newItem.size && item.color === newItem.color
+    );
+    if(existing){
+        existing.qty += 1;
+    }else{
+        items.push({...newItem, qty:1});
+    }
+    saveBagItems(items);
+    updateBagCount({bump:true});
+    renderBag();
+}
 
 /* ---------- Loading overlay + page changes ---------- */
 const searchLoading = document.querySelector(".search-loading");
 const pageParams = new URLSearchParams(window.location.search);
 const LOADING_DELAY = 800; /* same 800ms delay as the Figma prototype */
+const currentPage = document.body.dataset.page; /* "home", "results" or "product" */
 
-function showLoading(){
+function showLoading(message = "Loading results..."){
+    searchLoading.querySelector(".loading-text").textContent = message;
     searchLoading.hidden = false;
     document.body.setAttribute("aria-busy", "true");
 }
@@ -1033,23 +2460,56 @@ function openProductPage(parameter, value){
 }
 
 /* Product detail page (product.html). Passes the product name and
-   the current category so the breadcrumb + active nav stay correct. */
+   the current category so the breadcrumb + active nav stay correct.
+   A11: now shows the loading screen too, like every other page change. */
 function openProductDetails(productName){
-    const destination = new URL("product.html", window.location.href);
-    destination.searchParams.set("item", productName);
+    showLoading("Loading product...");
 
-    const category = pageParams.get("category");
-    if(category){
-        destination.searchParams.set("category", category);
-    }
+    window.setTimeout(() => {
+        const destination = new URL("product.html", window.location.href);
+        destination.searchParams.set("item", productName);
 
-    window.location.href = destination.href;
+        const category = pageParams.get("category");
+        if(category){
+            destination.searchParams.set("category", category);
+        }
+
+        window.location.href = destination.href;
+    }, LOADING_DELAY / 2);
 }
 
-/* Every product card (home + results) opens the product page.
-   FIX: cards on the homepage were not clickable before. */
-document.querySelectorAll(".product-card").forEach(card => {
+/* A11: plain links between pages (logo, breadcrumb, Similar products)
+   also show the loading screen, so there's never a blank wait. */
+document.addEventListener("click", event => {
+    const link = event.target.closest("a[href]");
+    if(!link || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || link.target){
+        return;
+    }
+    const href = link.getAttribute("href");
+    if(href.endsWith(".html") || href.includes(".html?")){
+        showLoading(link.closest(".related-card") ? "Loading product..." : "Loading...");
+    }
+});
+
+/* Makes a product card clickable (mouse, touch and keyboard) */
+function wireProductCard(card){
     const productName = card.querySelector("h3").textContent.trim();
+
+    /* Quick add button on the photo (critique round 2) */
+    const imageBox = card.querySelector(".product-image");
+    if(imageBox && !imageBox.querySelector(".quick-add-button")){
+        const quickButton = document.createElement("button");
+        quickButton.type = "button";
+        quickButton.className = "quick-add-button";
+        quickButton.setAttribute("aria-label", `Quick add ${productName} to bag`);
+        quickButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span>Quick add</span>';
+        quickButton.addEventListener("click", event => {
+            event.stopPropagation();   /* don't also open the product page */
+            openQuickAdd(productName, quickButton);
+        });
+        quickButton.addEventListener("keydown", event => event.stopPropagation());
+        imageBox.appendChild(quickButton);
+    }
 
     card.tabIndex = 0;
     card.setAttribute("role", "link");
@@ -1062,78 +2522,263 @@ document.querySelectorAll(".product-card").forEach(card => {
             openProductDetails(productName);
         }
     });
+}
+
+/* Builds one product card from the catalog (results page, empty state) */
+function createProductCard(product, index = 0){
+    const card = document.createElement("div");
+    card.className = "product-card fade-up";
+    card.style.setProperty("--i", index);
+    card.innerHTML = `
+        <div class="product-image"><img src="${IMG(product.image)}" alt=""></div>
+        <h3></h3>
+        <p class="price"></p>`;
+    card.querySelector("img").alt = product.alt;
+    card.querySelector("h3").textContent = product.name;
+    fillPrice(card.querySelector(".price"), product);
+    wireProductCard(card);
+    watchImages(card);
+    return card;
+}
+
+/* Grey placeholder card shown while results are "loading" */
+function createSkeletonCard(){
+    const card = document.createElement("div");
+    card.className = "skeleton-card";
+    card.setAttribute("aria-hidden", "true");
+    card.innerHTML = `
+        <div class="skeleton skeleton-image"></div>
+        <div class="skeleton skeleton-line"></div>
+        <div class="skeleton skeleton-line short"></div>`;
+    return card;
+}
+
+/* Homepage cards are written in the HTML, so just wire them up
+   (and fill in their real prices from the catalog) */
+document.querySelectorAll(".product-card").forEach(card => {
+    const product = findProduct(card.querySelector("h3").textContent);
+    if(product){
+        fillPrice(card.querySelector(".price"), product);
+    }
+    wireProductCard(card);
 });
+watchImages();
 
-/* ---------- Search with suggestions ---------- */
-const searchSuggestions = [
-    "Linen dress",
-    "Dresses",
-    "Jeans",
-    "T-shirts",
-    "Jackets",
-    "Sneakers",
-    "Bags",
-    "Sale items"
-];
+/* =========================================================
+   SEARCH WITH LIVE SUGGESTIONS (A11)
+   - Suggestions update on every keystroke (no submit needed)
+   - Matching text is underlined + bold
+   - "No matches" message when nothing fits
+   - Clearing the box hides the suggestions (and on the results
+     page, resets the product list)
+   - Arrow keys + Enter work, Escape closes
+   ========================================================= */
+const searchBoxes = document.querySelectorAll(".search-box");
 
-function updateSearchSuggestions(searchBox, searchSuggestionsList){
-    const query = searchBox.value.trim().toLowerCase();
-    const suggestions = searchSuggestions.filter(suggestion =>
-        suggestion.toLowerCase().includes(query)
-    );
+/* Wraps the part of `text` that matches `query` in <mark> */
+function highlightMatch(text, query){
+    const fragment = document.createDocumentFragment();
+    const start = normalize(text).indexOf(normalize(query));
 
-    searchSuggestionsList.replaceChildren();
+    if(!normalize(query) || start === -1){
+        fragment.append(text);
+        return fragment;
+    }
 
-    suggestions.forEach(suggestion => {
-        const item = document.createElement("li");
+    const mark = document.createElement("mark");
+    mark.textContent = text.slice(start, start + query.trim().length);
+    fragment.append(text.slice(0, start), mark, text.slice(start + query.trim().length));
+    return fragment;
+}
+
+/* What happens when you pick a search term or press Enter.
+   On the results page the list is filtered in place (no reload);
+   anywhere else you go to the results page. */
+function runSearch(term){
+    searchBoxes.forEach(box => { box.value = term; });
+    if(currentPage === "results"){
+        document.dispatchEvent(new CustomEvent("livesearch", {detail:{query:term, commit:true}}));
+    }else{
+        openProductPage("search", term);
+    }
+}
+
+function setupSearch(searchContainer){
+    const searchBox = searchContainer.querySelector(".search-box");
+    const clearButton = searchContainer.querySelector(".search-clear");
+    const list = searchContainer.querySelector(".search-suggestions");
+    const listId = list.id;
+    let activeIndex = -1;
+
+    function options(){
+        return [...list.querySelectorAll("button[role='option']")];
+    }
+
+    function hideSuggestions(){
+        list.hidden = true;
+        list.replaceChildren();
+        activeIndex = -1;
+        searchBox.setAttribute("aria-expanded", "false");
+        searchBox.removeAttribute("aria-activedescendant");
+    }
+
+    function addGroupLabel(text){
+        const label = document.createElement("p");
+        label.className = "suggestion-group";
+        label.setAttribute("role", "presentation");
+        label.textContent = text;
+        list.appendChild(label);
+    }
+
+    function addOption(id, onPick, buildContent){
         const button = document.createElement("button");
-
         button.type = "button";
-        button.textContent = suggestion;
+        button.id = `${listId}-${id}`;
         button.setAttribute("role", "option");
+        buildContent(button);
         button.addEventListener("click", () => {
-            searchBox.value = suggestion;
-            openProductPage("search", suggestion);
+            hideSuggestions();
+            onPick();
         });
+        list.appendChild(button);
+    }
 
-        item.appendChild(button);
-        searchSuggestionsList.appendChild(item);
+    function renderSuggestions(){
+        const query = searchBox.value;
+        clearButton.hidden = !query;
+
+        /* Empty box = no suggestions (requirement) */
+        if(!normalize(query)){
+            hideSuggestions();
+            return;
+        }
+
+        list.replaceChildren();
+        activeIndex = -1;
+
+        const productMatchesList = searchProducts(query).slice(0, 4);
+        const termMatches = SEARCH_TERMS.filter(term => normalize(term).includes(normalize(query)));
+
+        if(productMatchesList.length === 0 && termMatches.length === 0){
+            /* No-match state inside the dropdown */
+            const empty = document.createElement("p");
+            empty.className = "suggestion-empty";
+            empty.setAttribute("role", "status");
+            empty.textContent = `No matches for "${query.trim()}". Try "dress", "jacket" or "bag".`;
+            list.appendChild(empty);
+        }
+
+        if(productMatchesList.length){
+            addGroupLabel("Products");
+            productMatchesList.forEach((product, index) => {
+                addOption(`p${index}`, () => openProductDetails(product.name), button => {
+                    const thumb = document.createElement("span");
+                    thumb.className = "suggestion-thumb";
+                    thumb.innerHTML = `<img src="${THUMB(product.image)}" alt="">`;
+
+                    const text = document.createElement("span");
+                    text.className = "suggestion-text";
+                    const name = document.createElement("span");
+                    name.append(highlightMatch(product.name, query));
+                    const meta = document.createElement("span");
+                    meta.className = "suggestion-meta";
+                    meta.textContent = `${formatPrice(product.price)} · ${product.type}`;
+                    text.append(name, meta);
+
+                    button.append(thumb, text);
+                });
+            });
+        }
+
+        if(termMatches.length){
+            addGroupLabel("Searches");
+            termMatches.forEach((term, index) => {
+                addOption(`t${index}`, () => runSearch(term), button => {
+                    /* wrapped in a span so the <mark> stays inline */
+                    const label = document.createElement("span");
+                    label.append(highlightMatch(term, query));
+                    button.append(label);
+                });
+            });
+        }
+
+        list.hidden = false;
+        searchBox.setAttribute("aria-expanded", "true");
+        watchImages(list);
+    }
+
+    function setActive(index){
+        const all = options();
+        if(!all.length){
+            return;
+        }
+        activeIndex = (index + all.length) % all.length;
+        all.forEach((option, i) => option.classList.toggle("is-active", i === activeIndex));
+        all[activeIndex].scrollIntoView({block:"nearest"});
+        searchBox.setAttribute("aria-activedescendant", all[activeIndex].id);
+    }
+
+    searchBox.addEventListener("input", () => {
+        /* keep the mobile + desktop boxes showing the same text */
+        searchBoxes.forEach(box => {
+            if(box !== searchBox){
+                box.value = searchBox.value;
+            }
+        });
+        renderSuggestions();
+        document.dispatchEvent(new CustomEvent("livesearch", {detail:{query:searchBox.value, commit:false}}));
     });
 
-    const hasSuggestions = suggestions.length > 0;
-    searchSuggestionsList.hidden = !hasSuggestions;
-    searchBox.setAttribute("aria-expanded", String(hasSuggestions));
-}
+    searchBox.addEventListener("focus", () => {
+        if(searchBox.value){
+            renderSuggestions();
+        }
+    });
 
-function hideSearchSuggestions(searchBox, searchSuggestionsList){
-    searchSuggestionsList.hidden = true;
-    searchBox.setAttribute("aria-expanded", "false");
-}
-
-document.querySelectorAll(".search-container").forEach(searchContainer => {
-    const searchBox = searchContainer.querySelector(".search-box");
-    const searchSuggestionsList = searchContainer.querySelector(".search-suggestions");
-
-    searchBox.addEventListener("focus", () => updateSearchSuggestions(searchBox, searchSuggestionsList));
-    searchBox.addEventListener("input", () => updateSearchSuggestions(searchBox, searchSuggestionsList));
     searchBox.addEventListener("keydown", event => {
-        if(event.key === "Escape"){
-            hideSearchSuggestions(searchBox, searchSuggestionsList);
+        if(event.key === "ArrowDown"){
+            event.preventDefault();
+            setActive(activeIndex + 1);
+        }else if(event.key === "ArrowUp"){
+            event.preventDefault();
+            setActive(activeIndex - 1);
+        }else if(event.key === "Escape"){
+            hideSuggestions();
+        }else if(event.key === "Enter"){
+            event.preventDefault();
+            const all = options();
+            if(activeIndex >= 0 && all[activeIndex]){
+                all[activeIndex].click();
+            }else if(normalize(searchBox.value)){
+                hideSuggestions();
+                runSearch(searchBox.value.trim());
+            }
         }
+    });
 
-        /* FIX: pressing Enter in the search box did nothing before */
-        if(event.key === "Enter" && searchBox.value.trim()){
-            hideSearchSuggestions(searchBox, searchSuggestionsList);
-            openProductPage("search", searchBox.value.trim());
-        }
+    /* Clear button: empties the box, hides suggestions, resets results */
+    clearButton.addEventListener("click", () => {
+        searchBoxes.forEach(box => { box.value = ""; });
+        document.querySelectorAll(".search-clear").forEach(button => { button.hidden = true; });
+        hideSuggestions();
+        searchBox.focus();
+        document.dispatchEvent(new CustomEvent("livesearch", {detail:{query:"", commit:true}}));
     });
 
     document.addEventListener("click", event => {
         if(!searchContainer.contains(event.target)){
-            hideSearchSuggestions(searchBox, searchSuggestionsList);
+            hideSuggestions();
         }
     });
-});
+}
+
+document.querySelectorAll(".search-container").forEach(setupSearch);
+
+/* Show the clear button if a search term is already filled in */
+function syncSearchBoxes(value){
+    searchBoxes.forEach(box => { box.value = value; });
+    document.querySelectorAll(".search-clear").forEach(button => { button.hidden = !value; });
+}
 
 /* ---------- Mobile hamburger menu ---------- */
 const mobileMenuButton = document.querySelector(".mobile-menu-button");
@@ -1181,7 +2826,7 @@ document.addEventListener("keydown", event => {
 
 /* FIX: if the window is widened past the mobile breakpoint while
    the menu is open, close it so the page doesn't stay locked. */
-window.matchMedia("(min-width: 600px)").addEventListener("change", event => {
+window.matchMedia("(min-width: 37.5em)").addEventListener("change", event => {
     if(event.matches){
         setMobileMenuOpen(false);
     }
@@ -1193,7 +2838,7 @@ const activeCategory = pageParams.get("category");
 document.querySelectorAll(".nav-links a").forEach(link => {
     const category = link.textContent.trim();
 
-    /* NEW: highlight the category you are currently in
+    /* Highlight the category you are currently in
        (desktop navbar and mobile sidebar) */
     if(category === activeCategory){
         link.setAttribute("aria-current", "page");
@@ -1206,68 +2851,398 @@ document.querySelectorAll(".nav-links a").forEach(link => {
     });
 });
 
+/* ---------- Bag panel (A11, from critique) ---------- */
+const bagDrawer = document.querySelector(".bag-drawer");
+const bagOverlay = document.querySelector(".bag-overlay");
+const bagItemsList = bagDrawer.querySelector(".bag-items");
+const bagEmpty = bagDrawer.querySelector(".bag-empty");
+const bagEmptyText = bagEmpty.querySelector("p");
+const bagFooter = bagDrawer.querySelector(".bag-footer");
+const bagStatus = bagDrawer.querySelector(".bag-status");
+const bagCheckout = bagDrawer.querySelector(".bag-checkout");
+const BAG_EMPTY_TEXT = "Your bag is empty.";
+let lastBagTrigger = null;
+
+/* Finds the saved copy of a bag item (same product, size + color) */
+function sameBagItem(a, b){
+    return a.name === b.name && a.size === b.size && a.color === b.color;
+}
+
+function createBagRow(item, index){
+    const product = findProduct(item.name);
+    const row = document.createElement("li");
+    row.className = "bag-item fade-up";
+    row.style.setProperty("--i", index);
+    row.innerHTML = `
+        <div class="product-image"><img alt=""></div>
+        <div>
+            <p class="bag-item-name"></p>
+            <p class="bag-item-meta"></p>
+            <p class="bag-item-price"></p>
+            <!-- Critique (Group 10): add + remove items right in the bag -->
+            <div class="qty-stepper" role="group">
+                <button class="qty-minus" type="button">&minus;</button>
+                <span class="qty-value" aria-live="polite"></span>
+                <button class="qty-plus" type="button">+</button>
+            </div>
+        </div>
+        <button class="bag-remove" type="button">Remove</button>`;
+
+    const image = row.querySelector("img");
+    if(product){
+        image.src = THUMB(product.image).replace("w=120", "w=200");
+        image.alt = product.alt;
+    }
+    row.querySelector(".bag-item-name").textContent = item.name;
+    row.querySelector(".bag-item-meta").textContent = `Size ${item.size} · ${item.color}`;
+
+    const minus = row.querySelector(".qty-minus");
+    const plus = row.querySelector(".qty-plus");
+    const qtyValue = row.querySelector(".qty-value");
+    row.querySelector(".qty-stepper").setAttribute("aria-label", `Quantity of ${item.name}`);
+    minus.setAttribute("aria-label", `One less ${item.name}`);
+    plus.setAttribute("aria-label", `One more ${item.name}`);
+
+    /* Updates this row in place (no flicker), plus the subtotal +
+       every Bag count on the page */
+    function showQty(qty){
+        qtyValue.textContent = qty;
+        minus.disabled = qty <= 1;          /* use Remove to take it out */
+        plus.disabled = qty >= 10;          /* max 10 of one item */
+        row.querySelector(".bag-item-price").textContent = product ? formatPrice(product.price * qty) : "";
+        bagDrawer.querySelector(".bag-subtotal-amount").textContent = formatPrice(getBagTotal());
+    }
+
+    function changeQty(delta){
+        const items = getBagItems();
+        const saved = items.find(entry => sameBagItem(entry, item));
+        if(!saved){
+            return;
+        }
+        saved.qty = Math.min(10, Math.max(1, saved.qty + delta));
+        item.qty = saved.qty;
+        saveBagItems(items);
+        showQty(saved.qty);
+        updateBagCount({bump:true});
+        bagStatus.textContent = `${item.name}: quantity ${saved.qty}.`;
+        if(saved.qty >= 10){
+            bagStatus.textContent = "You can add up to 10 of the same item.";
+        }
+    }
+
+    minus.addEventListener("click", () => changeQty(-1));
+    plus.addEventListener("click", () => changeQty(1));
+    showQty(item.qty);
+
+    const removeButton = row.querySelector(".bag-remove");
+    removeButton.setAttribute("aria-label", `Remove ${item.name}, size ${item.size}`);
+    removeButton.addEventListener("click", () => {
+        /* slide the row out first, then actually remove it */
+        removeButton.disabled = true;
+        removeButton.setAttribute("aria-busy", "true");
+        row.classList.remove("fade-up");
+        row.classList.add("is-removing");
+        window.setTimeout(() => {
+            saveBagItems(getBagItems().filter(saved => !sameBagItem(saved, item)));
+            renderBag();
+            updateBagCount({bump:true});
+            bagStatus.textContent = `Removed ${item.name}.`;
+        }, 250);
+    });
+
+    watchImages(row);
+    return row;
+}
+
+/* Total of everything in the bag (A12, feedback: working bag) */
+function getBagTotal(){
+    return getBagItems().reduce((total, item) => {
+        const product = findProduct(item.name);
+        return total + (product ? product.price * item.qty : 0);
+    }, 0);
+}
+
+function renderBag(){
+    const items = getBagItems();
+    bagDrawer.querySelector(".bag-subtotal-amount").textContent = formatPrice(getBagTotal());
+    bagItemsList.replaceChildren(...items.map(createBagRow));
+    bagItemsList.hidden = items.length === 0;
+    bagFooter.hidden = items.length === 0;
+    bagEmpty.hidden = items.length > 0;
+    updateBagCount();
+}
+
+function setBagOpen(isOpen){
+    bagDrawer.classList.toggle("is-open", isOpen);
+    bagOverlay.classList.toggle("is-open", isOpen);
+    document.body.classList.toggle("bag-open", isOpen);
+    bagDrawer.setAttribute("aria-hidden", String(!isOpen));
+    bagDrawer.inert = !isOpen;
+
+    if(isOpen){
+        bagStatus.textContent = "";
+        renderBag();
+        bagDrawer.querySelector(".bag-close").focus();
+    }else{
+        bagEmptyText.textContent = BAG_EMPTY_TEXT;
+        if(lastBagTrigger){
+            lastBagTrigger.focus();
+        }
+    }
+}
+
+setBagOpen(false);
+updateBagCount();
+
+/* Any "Bag" link (desktop navbar, mobile header, mobile menu) */
+document.querySelectorAll(".bag-link").forEach(link => {
+    link.addEventListener("click", event => {
+        event.preventDefault();
+        lastBagTrigger = link.closest(".mobile-sidebar") ? mobileMenuButton : link;
+        setMobileMenuOpen(false);
+        setBagOpen(true);
+    });
+});
+
+bagDrawer.querySelector(".bag-close").addEventListener("click", () => setBagOpen(false));
+bagOverlay.addEventListener("click", () => setBagOpen(false));
+
+document.addEventListener("keydown", event => {
+    if(event.key === "Escape" && bagDrawer.classList.contains("is-open")){
+        setBagOpen(false);
+    }
+});
+
+/* Demo checkout: button disables + spinner while "processing",
+   then the bag empties and shows a confirmation */
+bagCheckout.addEventListener("click", () => {
+    bagCheckout.disabled = true;
+    bagCheckout.setAttribute("aria-busy", "true");
+    bagCheckout.innerHTML = '<span class="spinner-sm" aria-hidden="true"></span> Processing...';
+    bagStatus.textContent = "";
+
+    window.setTimeout(() => {
+        saveBagItems([]);
+        renderBag();
+        bagEmptyText.textContent = "Order placed! This is a class prototype, so nothing was charged.";
+        bagCheckout.disabled = false;
+        bagCheckout.removeAttribute("aria-busy");
+        bagCheckout.textContent = "Checkout";
+    }, 1200);
+});
+
+/* Keep the bag in sync if it changes in another tab */
+window.addEventListener("storage", event => {
+    if(event.key === BAG_KEY){
+        renderBag();
+    }
+});
+
+/* ---------- Account link (A12) ----------
+   After you create an account, every Account link greets you by
+   first name. On the account page the link is marked as active. */
+function showAccountGreeting(){
+    let firstName = "";
+    try{
+        firstName = localStorage.getItem("zara-account-name") || "";
+    }catch(error){
+        firstName = "";
+    }
+    document.querySelectorAll(".account-link").forEach(link => {
+        link.textContent = firstName ? `Hi, ${firstName}` : "Account";
+        if(currentPage === "account"){
+            link.setAttribute("aria-current", "page");
+        }
+    });
+}
+
+showAccountGreeting();
+
+/* ---------- Quick add (critique round 2, Group 10) ----------
+   Pick a size + add to the bag from any product card without
+   leaving the page. Same rules as the product page: sold-out sizes
+   explain themselves, no size = error + shake, adding = spinner. */
+const quickAdd = document.querySelector("#quick-add");
+const quickSizes = quickAdd.querySelector(".quick-add-sizes");
+const quickNote = quickAdd.querySelector(".quick-add-note");
+const quickSubmit = quickAdd.querySelector(".quick-add-submit");
+const SOLD_OUT_SIZES = ["M", "XL"];
+let quickProduct = null;
+let quickSize = "";
+let quickTrigger = null;
+
+function openQuickAdd(productName, trigger){
+    quickProduct = findProduct(productName);
+    if(!quickProduct){
+        return;
+    }
+    quickTrigger = trigger;
+    quickSize = "";
+
+    quickAdd.querySelector("#quick-add-title").textContent = quickProduct.name;
+    fillPrice(quickAdd.querySelector(".quick-add-price"), quickProduct);
+    setImageSource(quickAdd.querySelector(".quick-add-image img"), IMG(quickProduct.image), quickProduct.alt);
+    quickAdd.querySelector(".quick-add-details").href =
+        `product.html?item=${encodeURIComponent(quickProduct.name)}${pageParams.get("category") ? `&category=${encodeURIComponent(pageParams.get("category"))}` : ""}`;
+
+    quickNote.textContent = "Select a size to continue.";
+    quickNote.classList.remove("is-error");
+    quickSubmit.disabled = false;
+    quickSubmit.textContent = "Add to bag";
+
+    quickSizes.replaceChildren(...["XS", "S", "M", "L", "XL"].map(size => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "size-button";
+        button.dataset.size = size;
+        button.setAttribute("aria-pressed", "false");
+        button.textContent = size;
+        if(SOLD_OUT_SIZES.includes(size)){
+            button.classList.add("is-sold-out");
+            button.setAttribute("aria-disabled", "true");
+            button.setAttribute("aria-label", `${size}, sold out`);
+            const tag = document.createElement("span");
+            tag.className = "sold-tag";
+            tag.textContent = "Sold out";
+            button.append(tag);
+        }
+        button.addEventListener("click", () => {
+            if(button.classList.contains("is-sold-out")){
+                showQuickError(`${size} is sold out. Please pick another size.`);
+                return;
+            }
+            quickSize = size;
+            quickSizes.querySelectorAll(".size-button").forEach(other => {
+                other.setAttribute("aria-pressed", String(other === button));
+            });
+            quickNote.classList.remove("is-error");
+            quickSizes.classList.remove("has-error");
+            quickNote.textContent = `Size ${size} selected.`;
+        });
+        return button;
+    }));
+
+    quickAdd.showModal();
+}
+
+function showQuickError(text){
+    quickNote.textContent = text;
+    quickNote.classList.add("is-error");
+    quickSizes.classList.add("has-error");
+    quickSizes.classList.remove("shake");
+    void quickSizes.offsetWidth;
+    quickSizes.classList.add("shake");
+}
+
+quickSubmit.addEventListener("click", () => {
+    if(!quickSize){
+        showQuickError("Please select a size first.");
+        return;
+    }
+    quickSubmit.disabled = true;
+    quickSubmit.setAttribute("aria-busy", "true");
+    quickSubmit.innerHTML = '<span class="spinner-sm" aria-hidden="true"></span> Adding...';
+
+    window.setTimeout(() => {
+        addBagItem({name:quickProduct.name, size:quickSize, color:"Charcoal"});
+        quickSubmit.removeAttribute("aria-busy");
+        quickSubmit.textContent = "Added to bag \u2713";
+        quickNote.classList.remove("is-error");
+        quickNote.textContent = `Added ${quickProduct.name}, size ${quickSize}. Bag: ${getBagCount()} items.`;
+        /* close on its own so you can keep shopping */
+        window.setTimeout(() => quickAdd.close(), 1100);
+    }, 600);
+});
+
+quickAdd.querySelector(".quick-add-close").addEventListener("click", () => quickAdd.close());
+quickAdd.addEventListener("click", event => {
+    if(event.target === quickAdd){
+        quickAdd.close();
+    }
+});
+quickAdd.addEventListener("close", () => {
+    if(quickTrigger){
+        quickTrigger.focus();
+    }
+});
+
 /* =========================================================
    HOMEPAGE ONLY: hero carousel
    ========================================================= */
 const hero = document.querySelector(".hero");
+const heroLink = hero.querySelector(".hero-link");
 const heroImage = hero.querySelector(".hero-image");
 const heroHeading = hero.querySelector("h1");
+const heroCta = hero.querySelector(".hero-cta");
 const heroPauseButton = hero.querySelector(".hero-pause");
 const heroDots = hero.querySelectorAll(".hero-dot");
+const heroProgress = hero.querySelector(".hero-progress span");
+/* Critique (Groups 10 + 5): carousel moved too fast. Slides now
+   stay up for 8 seconds instead of 5. */
+const HERO_INTERVAL = 8000;
+hero.style.setProperty("--hero-interval", `${HERO_INTERVAL}ms`);
 
-/* FIX: captions were "Caption Here" on every slide after the first */
+/* A11 (critique): each slide belongs to a real product, so the
+   picture + "Shop" button open that product's page */
 const heroSlides = [
-    {
-        image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1600&q=80",
-        alt: "Fashion shoppers browsing a clothing collection",
-        heading: "ZARA's newest styles"
-    },
-    {
-        image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1600&q=80",
-        alt: "Model wearing a seasonal outfit",
-        heading: "New season looks"
-    },
-    {
-        image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1600&q=80",
-        alt: "Model showcasing a contemporary fashion look",
-        heading: "Fresh arrivals every week"
-    }
+    {product:"Linen Dress",   heading:"ZARA's newest styles"},
+    {product:"Shirt",         heading:"New season looks"},
+    {product:"Puffer Jacket", heading:"Ready for the cold"}
 ];
 let currentHeroSlide = 0;
 let heroIsPaused = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let heroTimer;
 
-if(heroIsPaused){
-    heroPauseButton.textContent = "Play";
-    heroPauseButton.setAttribute("aria-label", "Play slideshow");
-}
-
 function showHeroSlide(index){
     currentHeroSlide = (index + heroSlides.length) % heroSlides.length;
     const slide = heroSlides[currentHeroSlide];
+    const product = findProduct(slide.product);
+    const href = `product.html?item=${encodeURIComponent(product.name)}`;
 
     heroImage.classList.remove("is-changing");
-    heroImage.src = slide.image;
-    heroImage.alt = slide.alt;
-    heroHeading.textContent = slide.heading;
+    setImageSource(heroImage, IMG(product.image).replace("w=600", "w=1600"), product.alt);
     requestAnimationFrame(() => heroImage.classList.add("is-changing"));
 
-    /* Keep the position dots in sync with the slide */
+    heroHeading.textContent = slide.heading;
+    heroLink.href = href;
+    heroLink.setAttribute("aria-label", `Shop ${product.name}`);
+    heroCta.href = href;
+    heroCta.textContent = `Shop ${product.name}`;
+
+    /* Keep the dots in sync with the slide */
     heroDots.forEach((dot, dotIndex) => {
         dot.classList.toggle("is-active", dotIndex === currentHeroSlide);
+        dot.setAttribute("aria-current", String(dotIndex === currentHeroSlide));
     });
+}
+
+/* Restart the progress bar animation from empty */
+function restartProgress(){
+    heroProgress.classList.remove("is-running");
+    void heroProgress.offsetWidth;
+    if(!heroIsPaused){
+        heroProgress.classList.add("is-running");
+    }
 }
 
 function startHeroCarousel(){
     window.clearInterval(heroTimer);
+    hero.classList.toggle("is-paused", heroIsPaused);
+    restartProgress();
     if(!heroIsPaused){
         heroTimer = window.setInterval(() => {
             showHeroSlide(currentHeroSlide + 1);
-        }, 5000);
+            restartProgress();
+        }, HERO_INTERVAL);
     }
 }
 
-/* Manual arrows restart the timer so a slide doesn't skip right away */
+function updatePauseButton(){
+    heroPauseButton.textContent = heroIsPaused ? "Play" : "Pause";
+    heroPauseButton.setAttribute("aria-label", heroIsPaused ? "Play slideshow" : "Pause slideshow");
+}
+
+/* Arrows + dots restart the timer so a slide doesn't skip right away */
 hero.querySelector(".hero-previous").addEventListener("click", () => {
     showHeroSlide(currentHeroSlide - 1);
     startHeroCarousel();
@@ -1278,13 +3253,21 @@ hero.querySelector(".hero-next").addEventListener("click", () => {
     startHeroCarousel();
 });
 
+heroDots.forEach((dot, index) => {
+    dot.addEventListener("click", () => {
+        showHeroSlide(index);
+        startHeroCarousel();
+    });
+});
+
 heroPauseButton.addEventListener("click", () => {
     heroIsPaused = !heroIsPaused;
-    heroPauseButton.textContent = heroIsPaused ? "Play" : "Pause";
-    heroPauseButton.setAttribute("aria-label", heroIsPaused ? "Play slideshow" : "Pause slideshow");
+    updatePauseButton();
     startHeroCarousel();
 });
 
+updatePauseButton();
+showHeroSlide(0);
 startHeroCarousel();
 
 </script>

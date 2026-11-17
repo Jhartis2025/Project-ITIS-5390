@@ -1,0 +1,3698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create account | ZARA</title>
+
+<!-- Apply the saved light/dark theme BEFORE the page draws, so dark
+     mode stays on when you move between pages (no white flash) -->
+<script>
+/* A13: if you never picked a theme, follow your device setting
+   (prefers-color-scheme). A choice you make with the switch wins. */
+try{
+    var savedTheme = localStorage.getItem("zara-theme");
+    if(savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)){
+        document.documentElement.classList.add("dark");
+    }
+}catch(error){}
+</script>
+
+<!-- Inter = the font used in the Figma prototype (falls back to Arial offline) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+
+/* =========================================================
+   SHARED STYLES (identical on every page)
+   Written MOBILE-FIRST: the base rules below are the phone
+   layout (~375px). Media queries further down only ADD rules
+   as the screen gets wider.
+   Breakpoints follow the Material Design responsive grid:
+     600px  = tablet (navbar replaces the hamburger)
+     905px  = desktop (full horizontal navbar, 4-column grid)
+   ========================================================= */
+
+/* ---------- Design tokens ----------
+   Every color/spacing value comes from these variables so the
+   light theme, the dark theme, mobile and desktop all share
+   one visual system (matches the greyscale Figma prototype). */
+:root{
+    --bg:#ffffff;
+    --surface:#f2f2f2;          /* breadcrumb bar, footer */
+    --surface-2:#e8e8e8;        /* image placeholders */
+    --text:#222222;
+    --text-muted:#666666;
+    --border:#cfcfcf;
+    --border-strong:#222222;    /* outlined buttons, logo, inputs */
+    --border-input:#767676;     /* A13: input borders, 4.5:1 on white */
+    --focus:#222222;            /* A13: focus ring */
+    --fill:#222222;             /* filled buttons (Add to bag) */
+    --fill-text:#ffffff;
+    --hover:#f2f2f2;
+    --overlay:rgba(255,255,255,.92);
+    --shadow:0 8px 18px rgba(0,0,0,.14);
+    --ring:rgba(34,34,34,.15);       /* focus ring around inputs */
+    --error:#b3261e;                 /* error text (Material error red) */
+    --error-ring:rgba(179,38,30,.2);
+    --success:#1b7f3b;               /* valid fields (A12) */
+    --shimmer:rgba(255,255,255,.55); /* skeleton shimmer highlight */
+
+    --gutter:16px;              /* page side padding (8dp grid) */
+    --tap:2.75rem;              /* 44px touch targets that grow with text size (A13) */
+    --font:"Inter", Arial, Helvetica, sans-serif;
+}
+
+/* Dark theme (Material dark: #121212 background, light text).
+   The class lives on <html> so it can be applied in <head>
+   before the page paints (no white flash between pages). */
+html.dark{
+    --bg:#121212;
+    /* Critique (Group 5): dark mode needed more contrast between the
+       background + pictures, and clearer borders where light mode
+       uses white space. Surfaces are lighter and borders brighter. */
+    --surface:#202020;
+    --surface-2:#333333;
+    --text:#f5f5f5;
+    --text-muted:#bbbbbb;
+    --border:#5e5e5e;
+    --border-strong:#f5f5f5;
+    --border-input:#8f8f8f;
+    --focus:#ffffff;
+    --fill:#f5f5f5;
+    --fill-text:#121212;
+    --hover:#2a2a2a;
+    --overlay:rgba(18,18,18,.94);
+    --shadow:0 8px 18px rgba(0,0,0,.5);
+    --ring:rgba(245,245,245,.2);
+    --error:#f2b8b5;
+    --error-ring:rgba(242,184,181,.25);
+    --success:#81c995;
+    --shimmer:rgba(255,255,255,.08);
+}
+
+/* ---------- Reset / base ---------- */
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:var(--font);
+    font-size:1rem;
+    line-height:1.4;
+    background:var(--bg);
+    color:var(--text);
+    overflow-x:hidden;
+    transition:background-color .2s ease, color .2s ease;
+}
+
+button,
+input{
+    font:inherit;
+    color:inherit;
+}
+
+img{
+    display:block;
+    max-width:100%;
+}
+
+a,
+button,
+input,
+[tabindex]{
+    -webkit-tap-highlight-color:transparent;
+}
+
+/* One focus style everywhere (keyboard users) */
+/* A13: one strong focus style for every interactive element.
+   A text-colored outline with a background-colored halo behind it,
+   so the ring stays visible on white, black AND on photos. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible{
+    outline:3px solid var(--focus);
+    outline-offset:2px;
+    box-shadow:0 0 0 5px var(--bg);
+}
+
+/* Skip link: first thing keyboard users reach on every page */
+.skip-link{
+    position:absolute;
+    top:-100px;
+    left:var(--gutter);
+    z-index:2000;
+    padding:.75rem 1rem;
+    background:var(--fill);
+    color:var(--fill-text);
+    font-weight:bold;
+    text-decoration:none;
+}
+
+.skip-link:focus{
+    top:.5rem;
+}
+
+/* ---------- Loading overlay (shown before page changes) ---------- */
+.search-loading{
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    background:var(--overlay);
+    color:var(--text);
+    font-size:1.1rem;
+}
+
+.search-loading[hidden]{
+    display:none;
+}
+
+.loading-spinner{
+    width:28px;
+    height:28px;
+    border:3px solid var(--border);
+    border-top-color:var(--text);
+    border-radius:50%;
+    animation:spin .8s linear infinite;
+}
+
+@keyframes spin{
+    to{ transform:rotate(360deg); }
+}
+
+/* ---------- Outlined buttons ----------
+   Dark mode toggle, hero controls, hamburger, close and
+   "Load more" all share one button style (was different on
+   each page before). */
+.dark-btn,
+.hero-pause,
+.mobile-menu-button,
+.mobile-sidebar-close,
+.load-more-button{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-height:var(--tap);
+    min-width:var(--tap);
+    padding:10px 16px;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+    cursor:pointer;
+    transition:background-color .2s ease, color .2s ease;
+}
+
+.dark-btn:hover,
+.hero-pause:hover,
+.mobile-menu-button:hover,
+.mobile-sidebar-close:hover,
+.load-more-button:hover{
+    background:var(--fill);
+    color:var(--fill-text);
+}
+
+.mobile-menu-button,
+.mobile-sidebar-close{
+    padding:10px;
+}
+
+/* ---------- Header ---------- */
+header{
+    background:var(--bg);
+    border-bottom:1px solid var(--border);
+}
+
+.logo{
+    display:inline-flex;
+    align-items:center;
+    min-height:var(--tap);
+    padding:8px 16px;
+    border:2px solid var(--border-strong);
+    color:var(--text);
+    font-weight:bold;
+    letter-spacing:.08em;
+    text-decoration:none;
+}
+
+/* Mobile header: hamburger on the left, logo on the right */
+.mobile-header{
+    display:flex;
+    flex-direction:row-reverse;
+    align-items:center;
+    justify-content:space-between;
+    padding:8px var(--gutter);
+}
+
+/* Mobile search row under the header (A11) */
+.mobile-search{
+    padding:0 var(--gutter) 12px;
+}
+
+/* Full navbar is hidden on phones (hamburger is used instead) */
+.navbar{
+    display:none;
+}
+
+.left-nav{
+    display:flex;
+    align-items:center;
+    gap:32px;
+}
+
+.right-nav{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+}
+
+.nav-links{
+    display:flex;
+    gap:24px;
+    list-style:none;
+}
+
+.nav-links a,
+.icon-link{
+    display:inline-flex;
+    align-items:center;
+    min-height:var(--tap);
+    color:var(--text);
+    text-decoration:none;
+    transition:color .2s ease;
+}
+
+.nav-links a:hover,
+.icon-link:hover,
+.breadcrumb a:hover,
+footer a:hover{
+    text-decoration:underline;
+    text-underline-offset:4px;
+}
+
+/* Long names in "Hi, <name>" get cut off with ... instead of
+   breaking the header */
+.navbar .account-link{
+    display:inline-block !important;
+    max-width:12em;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    line-height:var(--tap);
+}
+
+/* Active page indicator (set by JS with aria-current="page") */
+.icon-link[aria-current="page"],
+.nav-links a[aria-current="page"]{
+    font-weight:bold;
+    text-decoration:underline;
+    text-decoration-thickness:2px;
+    text-underline-offset:6px;
+}
+
+/* ---------- Search with suggestions ---------- */
+.search-container{
+    position:relative;
+    width:100%;
+}
+
+.search-box{
+    width:100%;
+    min-height:var(--tap);
+    padding:10px 40px 10px 38px;   /* room for the icon + clear button */
+    border:1px solid var(--border-input);   /* A13: was too light (1.5:1) */
+    background:var(--bg);
+    color:var(--text);
+    /* ANIMATION 1 (A11): focus ring eases in so you can see which
+       field is active, instead of snapping on */
+    transition:border-color .2s ease, box-shadow .2s ease;
+}
+
+/* A13: keeps the strong focus outline (it used to be removed and
+   replaced with a faint ring that failed contrast) */
+.search-box:focus{
+    border-color:var(--border-strong);
+}
+
+.search-icon{
+    position:absolute;
+    top:50%;
+    left:12px;
+    color:var(--text-muted);
+    transform:translateY(-50%);
+    pointer-events:none;
+}
+
+.search-clear{
+    position:absolute;
+    top:50%;
+    right:4px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:2.25rem;
+    height:2.25rem;
+    border:0;
+    background:transparent;
+    color:var(--text-muted);
+    cursor:pointer;
+    transform:translateY(-50%);
+}
+
+.search-clear[hidden]{
+    display:none;
+}
+
+.search-clear:hover{
+    color:var(--text);
+}
+
+.search-box::placeholder{
+    color:var(--text-muted);
+}
+
+.search-suggestions{
+    position:absolute;
+    top:calc(100% + 6px);
+    left:0;
+    right:0;
+    z-index:40;
+    max-height:min(420px, 70vh);
+    overflow-y:auto;
+    padding:6px 0;
+    background:var(--bg);
+    border:1px solid var(--border);
+    box-shadow:var(--shadow);
+    /* ANIMATION 2 (A11): dropdown fades + slides down when it opens,
+       so it reads as coming FROM the search box */
+    animation:dropdown-in .18s ease-out;
+}
+
+@keyframes dropdown-in{
+    from{ opacity:0; transform:translateY(-6px); }
+    to{ opacity:1; transform:translateY(0); }
+}
+
+.search-suggestions[hidden]{
+    display:none;
+}
+
+/* Small grey group labels: "Products" / "Searches" */
+.suggestion-group{
+    padding:8px 12px 4px;
+    color:var(--text-muted);
+    font-size:0.75rem;
+    font-weight:bold;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+}
+
+.search-suggestions button{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    width:100%;
+    min-height:var(--tap);
+    padding:6px 12px;
+    border:0;
+    background:transparent;
+    color:var(--text);
+    text-align:left;
+    cursor:pointer;
+    transition:background-color .15s ease;
+}
+
+/* .is-active = highlighted with the arrow keys */
+.search-suggestions button:hover,
+.search-suggestions button:focus,
+.search-suggestions button.is-active{
+    background:var(--hover);
+}
+
+.suggestion-thumb{
+    flex-shrink:0;
+    width:36px;
+    height:44px;
+    overflow:hidden;
+    background:var(--surface-2);
+}
+
+.suggestion-thumb img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+}
+
+.suggestion-text{
+    display:flex;
+    flex-direction:column;
+}
+
+.suggestion-meta{
+    color:var(--text-muted);
+    font-size:0.75rem;
+}
+
+/* The part of the word that matches what you typed */
+.search-suggestions mark{
+    background:none;
+    color:inherit;
+    font-weight:bold;
+    text-decoration:underline;
+    text-underline-offset:3px;
+}
+
+/* No-match message inside the dropdown */
+.suggestion-empty{
+    padding:12px;
+    color:var(--text-muted);
+    font-size:0.875rem;
+}
+
+/* ---------- Mobile slide-in sidebar (hamburger menu) ---------- */
+.mobile-sidebar{
+    display:block;
+    position:fixed;
+    top:0;
+    left:0;
+    z-index:30;
+    width:min(300px,85vw);
+    height:100vh;
+    height:100dvh;
+    padding:20px;
+    overflow-y:auto;
+    background:var(--bg);
+    color:var(--text);
+    box-shadow:4px 0 16px rgba(0,0,0,.2);
+    transform:translateX(-105%);
+    transition:transform .25s ease;
+}
+
+.mobile-sidebar.is-open{
+    transform:translateX(0);
+}
+
+.mobile-sidebar-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:24px;
+}
+
+.mobile-sidebar .search-container{
+    margin-bottom:16px;
+}
+
+.mobile-sidebar .nav-links{
+    flex-direction:column;
+    gap:0;
+    margin-bottom:20px;
+}
+
+.mobile-sidebar .nav-links a,
+.mobile-sidebar .icon-link{
+    display:flex;
+    width:100%;
+    padding:12px 4px;
+    border-bottom:1px solid var(--border);
+}
+
+/* Active category inside the sidebar gets a left bar too */
+.mobile-sidebar .nav-links a[aria-current="page"]{
+    padding-left:12px;
+    border-left:3px solid var(--text);
+    text-decoration:none;
+}
+
+.mobile-sidebar .dark-btn{
+    width:100%;
+    margin-bottom:16px;
+}
+
+.mobile-overlay{
+    display:none;
+}
+
+.mobile-overlay.is-open{
+    display:block;
+    position:fixed;
+    inset:0;
+    z-index:29;
+    background:rgba(0,0,0,.45);
+}
+
+body.menu-open{
+    overflow:hidden;
+}
+
+/* ---------- Breadcrumb bar (grey bar in the Figma) ---------- */
+.breadcrumb{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    padding:12px var(--gutter);
+    background:var(--surface);
+    border-bottom:1px solid var(--border);
+    color:var(--text-muted);
+    font-size:0.875rem;
+}
+
+/* Padding + negative margin = bigger tap area without making
+   the bar taller */
+.breadcrumb a{
+    display:inline-block;
+    padding:12px 4px;
+    margin:-12px -4px;
+    color:var(--text-muted);
+    text-decoration:none;
+}
+
+.breadcrumb [aria-current="page"]{
+    color:var(--text);
+}
+
+/* ---------- Product sections + grid (home + results) ---------- */
+.section{
+    padding:24px var(--gutter) 16px;
+}
+
+.section h2{
+    margin-bottom:16px;
+    font-size:1.25rem;
+}
+
+/* Figma mobile = 2 columns, desktop = 4 columns */
+.product-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:16px;
+}
+
+.product-card{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    cursor:pointer;
+    transition:transform .2s ease, box-shadow .2s ease;
+}
+
+.product-card[hidden]{
+    display:none;
+}
+
+.product-card:hover{
+    transform:translateY(-4px);
+    box-shadow:var(--shadow);
+}
+
+.product-image{
+    aspect-ratio:4 / 5;
+    transition:border-color .2s ease;
+    overflow:hidden;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+}
+
+.product-image img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    transition:transform .3s ease;
+}
+
+.product-card:hover .product-image img{
+    transform:scale(1.05);
+}
+
+.product-card h3{
+    margin-top:4px;
+    font-size:1rem;
+    font-weight:normal;
+}
+
+.price{
+    font-weight:bold;
+}
+
+/* Sale items: old price crossed out in grey before the new one */
+.price-was{
+    color:var(--text-muted);
+    font-weight:normal;
+}
+
+/* ---------- Footer (grey bar in the Figma) ---------- */
+footer{
+    display:flex;
+    flex-wrap:wrap;
+    gap:0 24px;
+    margin-top:24px;
+    padding:8px var(--gutter);
+    background:var(--surface);
+    border-top:1px solid var(--border);
+}
+
+footer a{
+    display:inline-flex;
+    align-items:center;
+    min-height:var(--tap);
+    color:var(--text);
+    text-decoration:none;
+}
+
+
+/* =========================================================
+   A11: LOADING STATES + MICRO-INTERACTIONS (shared)
+   ========================================================= */
+
+/* ---------- Skeleton shimmer ----------
+   Grey blocks with a light sweep moving across them. Used for
+   product cards while results load, and for any image that is
+   still downloading. Tells the user "content is on its way". */
+.skeleton,
+.is-loading-img{
+    position:relative;
+    overflow:hidden;
+    background:var(--surface-2);
+}
+
+.skeleton::after,
+.is-loading-img::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(90deg, transparent, var(--shimmer), transparent);
+    transform:translateX(-100%);
+    animation:shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer{
+    to{ transform:translateX(100%); }
+}
+
+/* Images fade in once they have loaded (no hard pop-in) */
+.is-loading-img img{
+    opacity:0;
+}
+
+.product-image img,
+.gallery-main img,
+.related-card img,
+.suggestion-thumb img{
+    transition:opacity .3s ease, transform .3s ease;
+}
+
+/* Image failed to load: say so instead of showing a broken icon */
+.is-broken-img{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--surface-2);
+}
+
+.is-broken-img img{
+    display:none;
+}
+
+.is-broken-img::before{
+    content:"Image unavailable";
+    color:var(--text-muted);
+    font-size:0.8125rem;
+}
+
+/* Tiny thumbnails are too small for the text: plain grey box */
+.suggestion-thumb.is-broken-img::before,
+.bag-item .is-broken-img::before{
+    content:"";
+}
+
+/* Skeleton version of a product card */
+.skeleton-card{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.skeleton-card .skeleton-image{
+    aspect-ratio:4 / 5;
+}
+
+.skeleton-line{
+    height:12px;
+    border-radius:2px;
+}
+
+.skeleton-line.short{
+    width:40%;
+}
+
+/* ---------- Small inline spinner (inside buttons / status text) ---------- */
+.spinner-sm{
+    display:inline-block;
+    width:16px;
+    height:16px;
+    border:2px solid currentColor;
+    border-right-color:transparent;
+    border-radius:50%;
+    vertical-align:-3px;
+    animation:spin .7s linear infinite;
+}
+
+/* Any button in a loading state: dimmed + not clickable */
+button[aria-busy="true"]{
+    cursor:progress;
+    opacity:.8;
+}
+
+/* ---------- Cards fade up when they appear ----------
+   ANIMATION 3: new results slide up slightly + fade in, one after
+   another, so it's obvious the list just changed. */
+.fade-up{
+    animation:fade-up .35s ease-out both;
+    animation-delay:calc(var(--i, 0) * 40ms);
+}
+
+/* Uses "translate" (not "transform") so it never fights with the
+   hover lift on cards, which uses transform */
+@keyframes fade-up{
+    from{ opacity:0; translate:0 12px; }
+    to{ opacity:1; translate:0 0; }
+}
+
+/* ---------- Bag count bump ----------
+   ANIMATION 4: the Bag count pops when something is added, so you
+   notice it changed even if you weren't looking at the header. */
+.bag-count{
+    display:inline-block;
+}
+
+.bag-count.bump{
+    animation:bump .45s ease;
+}
+
+@keyframes bump{
+    0%{ transform:scale(1); }
+    40%{ transform:scale(1.6); }
+    100%{ transform:scale(1); }
+}
+
+/* ---------- Shake (missing required choice) ----------
+   ANIMATION 5: a short side-to-side shake points at the thing you
+   still need to pick (used for "Select a size"). */
+.shake{
+    animation:shake .4s ease;
+}
+
+@keyframes shake{
+    0%, 100%{ transform:translateX(0); }
+    20%, 60%{ transform:translateX(-6px); }
+    40%, 80%{ transform:translateX(6px); }
+}
+
+/* Loading overlay fades in instead of flashing */
+.search-loading{
+    animation:overlay-in .2s ease-out;
+}
+
+@keyframes overlay-in{
+    from{ opacity:0; }
+    to{ opacity:1; }
+}
+
+/* ---------- Bag panel (A11, from critique) ----------
+   Slides in from the right on every screen size. */
+.mobile-bag{
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    min-width:var(--tap);
+    min-height:var(--tap);
+    color:var(--text);
+    text-decoration:none;
+    font-size:0.875rem;
+}
+
+.bag-overlay{
+    position:fixed;
+    inset:0;
+    z-index:49;
+    background:rgba(0,0,0,.45);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .25s ease;
+}
+
+.bag-overlay.is-open{
+    opacity:1;
+    pointer-events:auto;
+}
+
+.bag-drawer{
+    position:fixed;
+    top:0;
+    right:0;
+    z-index:50;
+    display:flex;
+    flex-direction:column;
+    width:min(380px, 90vw);
+    height:100vh;
+    height:100dvh;
+    background:var(--bg);
+    color:var(--text);
+    box-shadow:-4px 0 16px rgba(0,0,0,.2);
+    transform:translateX(105%);
+    /* ANIMATION: panel slides in from the right, the side the Bag
+       link is on, so it's clear where it came from */
+    transition:transform .3s ease;
+}
+
+.bag-drawer.is-open{
+    transform:translateX(0);
+}
+
+.bag-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 20px;
+    border-bottom:1px solid var(--border);
+}
+
+.bag-header h2{
+    font-size:1.15rem;
+}
+
+.bag-close{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:var(--tap);
+    height:var(--tap);
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+    cursor:pointer;
+}
+
+.bag-items{
+    flex:1;
+    overflow-y:auto;
+    padding:8px 20px;
+    list-style:none;
+}
+
+.bag-item{
+    display:grid;
+    grid-template-columns:64px 1fr auto;
+    align-items:center;
+    gap:12px;
+    padding:12px 0;
+    border-bottom:1px solid var(--border);
+    transition:opacity .25s ease, transform .25s ease;
+}
+
+/* Removed items slide out + fade before they disappear */
+.bag-item.is-removing{
+    opacity:0;
+    transform:translateX(24px);
+}
+
+.bag-item .product-image{
+    aspect-ratio:4 / 5;
+    transition:border-color .2s ease;
+}
+
+.bag-item-name{
+    font-weight:bold;
+}
+
+.bag-item-meta{
+    color:var(--text-muted);
+    font-size:0.8125rem;
+}
+
+/* Quantity stepper:  -  2  +  */
+.qty-stepper{
+    display:inline-flex;
+    align-items:center;
+    margin-top:8px;
+    border:1px solid var(--border-strong);
+}
+
+.qty-stepper button{
+    min-width:2.25rem;
+    min-height:2.25rem;
+    border:0;
+    background:var(--bg);
+    color:var(--text);
+    font-size:1.125rem;
+    cursor:pointer;
+    transition:background-color .2s ease;
+}
+
+.qty-stepper button:hover:not(:disabled){
+    background:var(--hover);
+}
+
+.qty-stepper button:disabled{
+    color:var(--text-muted);
+    opacity:.4;
+    cursor:not-allowed;
+}
+
+.qty-value{
+    min-width:32px;
+    text-align:center;
+    font-weight:bold;
+}
+
+.bag-item{
+    align-items:start !important;
+}
+
+.bag-remove{
+    min-height:var(--tap);
+    padding:0 8px;
+    border:0;
+    background:none;
+    color:var(--text);
+    font-size:0.8125rem;
+    text-decoration:underline;
+    text-underline-offset:3px;
+    cursor:pointer;
+}
+
+.bag-empty{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+    padding:20px;
+    color:var(--text-muted);
+    text-align:center;
+}
+
+.bag-empty[hidden],
+.bag-items[hidden],
+.bag-footer[hidden]{
+    display:none;
+}
+
+.bag-shop-link{
+    display:inline-flex;
+    align-items:center;
+    min-height:var(--tap);
+    padding:0 20px;
+    border:1px solid var(--border-strong);
+    color:var(--text);
+    font-weight:bold;
+    text-decoration:none;
+}
+
+.bag-footer{
+    padding:16px 20px 20px;
+    border-top:1px solid var(--border);
+}
+
+.bag-subtotal{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:8px;
+    font-weight:bold;
+}
+
+.bag-item-price{
+    margin-top:2px;
+    font-size:0.875rem;
+    font-weight:bold;
+}
+
+.bag-status{
+    min-height:1.4em;
+    margin-bottom:8px;
+    font-size:0.875rem;
+}
+
+.bag-checkout{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    min-height:48px;
+    border:1px solid var(--fill);
+    background:var(--fill);
+    color:var(--fill-text);
+    font-weight:bold;
+    cursor:pointer;
+    transition:opacity .2s ease;
+}
+
+.bag-checkout:hover{
+    opacity:.85;
+}
+
+body.bag-open{
+    overflow:hidden;
+}
+
+
+/* =========================================================
+   CRITIQUE ROUND 2 (shared)
+   ========================================================= */
+
+/* Divider line between page sections (Figma "dividing rule").
+   In dark mode this is what replaces the white space you see
+   between sections in light mode. */
+.section + .section{
+    border-top:1px solid var(--border);
+}
+
+/* Dark mode: every picture sits on a lighter frame with a visible
+   outline, so photos don't melt into the black background */
+html.dark .product-image,
+html.dark .related-image,
+html.dark .gallery-main,
+html.dark .gallery-thumbnail,
+html.dark .suggestion-thumb{
+    border-color:var(--border);
+    box-shadow:0 0 0 1px rgba(255,255,255,.04), 0 6px 16px rgba(0,0,0,.45);
+}
+
+html.dark .product-card:hover .product-image{
+    border-color:#9a9a9a;
+}
+
+/* Header, breadcrumb + footer get a clearer edge in dark mode */
+html.dark header,
+html.dark .breadcrumb{
+    border-bottom-color:var(--border);
+}
+
+/* ---------- Page transitions (critique, Group 5) ----------
+   Leaving a page: the loading overlay fades in (above).
+   Arriving on a page: the content fades + slides up a little,
+   so moving between pages feels like one smooth step. */
+main{
+    animation:page-in .4s ease-out both;
+}
+
+@keyframes page-in{
+    from{ opacity:0; translate:0 10px; }
+    to{ opacity:1; translate:0 0; }
+}
+
+/* Thin bar across the top while a new page loads */
+.search-loading::before{
+    content:"";
+    position:fixed;
+    top:0;
+    left:0;
+    height:3px;
+    width:100%;
+    background:var(--text);
+    transform-origin:left;
+    animation:page-progress .9s ease-out forwards;
+}
+
+@keyframes page-progress{
+    from{ transform:scaleX(0); }
+    to{ transform:scaleX(.9); }
+}
+
+/* Spinner turns a bit slower so it looks smooth, not frantic */
+.loading-spinner{
+    animation-duration:1s;
+}
+
+
+/* ---------- Quick add (critique round 2) ---------- */
+.product-image{
+    position:relative;
+}
+
+/* Always visible on phones (no hover there); on desktop it slides
+   up when you hover or tab to the card */
+.quick-add-button{
+    position:absolute;
+    right:8px;
+    bottom:8px;
+    z-index:2;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    min-width:var(--tap);
+    min-height:var(--tap);
+    padding:0 10px;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+    font-size:0.8125rem;
+    font-weight:bold;
+    box-shadow:0 2px 8px rgba(0,0,0,.25);
+    cursor:pointer;
+    transition:opacity .2s ease, transform .2s ease, background-color .2s ease, color .2s ease;
+}
+
+.quick-add-button span{
+    display:none;
+}
+
+.quick-add-button:hover{
+    background:var(--fill);
+    color:var(--fill-text);
+}
+
+.quick-add{
+    width:min(640px, calc(100vw - 32px));
+    max-height:calc(100dvh - 32px);
+    margin:auto;
+    padding:0;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+}
+
+.quick-add[open]{
+    animation:dialog-pop .2s ease-out;
+}
+
+@keyframes dialog-pop{
+    from{ opacity:0; transform:scale(.96); }
+    to{ opacity:1; transform:scale(1); }
+}
+
+.quick-add::backdrop{
+    background:rgba(0,0,0,.5);
+}
+
+.quick-add-inner{
+    position:relative;
+    display:grid;
+    grid-template-columns:110px 1fr;
+    gap:16px;
+    padding:20px;
+}
+
+.quick-add-close{
+    position:absolute;
+    top:8px;
+    right:8px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:var(--tap);
+    height:var(--tap);
+    border:0;
+    background:none;
+    color:var(--text);
+    cursor:pointer;
+}
+
+.quick-add-image{
+    align-self:start;
+}
+
+.quick-add-info h2{
+    margin:4px 48px 4px 0;
+    font-size:1.1rem;
+}
+
+.quick-add-label{
+    margin:12px 0 8px;
+    font-size:.9rem;
+    font-weight:bold;
+}
+
+.quick-add-sizes{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+
+/* Size buttons in quick add match the product page */
+.quick-add .size-button{
+    display:inline-flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-width:48px;
+    min-height:var(--tap);
+    padding:4px 6px;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+    cursor:pointer;
+}
+
+.quick-add .size-button[aria-pressed="true"]{
+    background:var(--fill);
+    color:var(--fill-text);
+    font-weight:bold;
+}
+
+.quick-add .size-button.is-sold-out{
+    border-color:var(--border);
+    background:var(--surface);
+    color:var(--text-muted);
+    text-decoration:line-through;
+    cursor:not-allowed;
+}
+
+.quick-add .sold-tag{
+    font-size:0.625rem;
+    line-height:1.1;
+    text-decoration:none;
+}
+
+.quick-add-sizes.has-error .size-button:not(.is-sold-out){
+    border-color:var(--error);
+}
+
+.quick-add-note{
+    min-height:1.4em;
+    margin-top:8px;
+    color:var(--text-muted);
+    font-size:.85rem;
+}
+
+.quick-add-note.is-error{
+    color:var(--error);
+    font-weight:bold;
+}
+
+.quick-add-submit{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    min-height:48px;
+    margin-top:12px;
+    border:1px solid var(--fill);
+    background:var(--fill);
+    color:var(--fill-text);
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.quick-add-submit:disabled{
+    cursor:progress;
+}
+
+.quick-add-details{
+    display:inline-flex;
+    align-items:center;
+    min-height:var(--tap);
+    margin-top:4px;
+    color:var(--text);
+    font-size:.85rem;
+    text-underline-offset:3px;
+}
+
+@media(min-width:37.5em){
+    .quick-add-inner{
+        grid-template-columns:200px 1fr;
+        gap:24px;
+        padding:24px;
+    }
+
+    .quick-add-button span{
+        display:inline;
+    }
+}
+
+/* Mouse users: show Quick add on hover/focus only */
+@media(hover:hover) and (min-width:600px){
+    .quick-add-button{
+        opacity:0;
+        transform:translateY(6px);
+    }
+
+    .product-card:hover .quick-add-button,
+    .product-card:focus-within .quick-add-button,
+    .quick-add-button:focus-visible{
+        opacity:1;
+        transform:translateY(0);
+    }
+}
+
+/* Hide the scrollbar on phones only (Figma spec: scroll
+   without a visible scrollbar on mobile) */
+@media(max-width:37.49em){
+    html{
+        scrollbar-width:none;
+    }
+
+    html::-webkit-scrollbar{
+        display:none;
+    }
+}
+
+/* ---------- Tablet: 600px and up ---------- */
+@media(min-width:37.5em){
+    :root{
+        --gutter:24px;
+    }
+
+    /* Swap the hamburger header for the real navbar */
+    .mobile-header,
+    .mobile-search,
+    .mobile-sidebar,
+    .mobile-overlay.is-open{
+        display:none;
+    }
+
+    body.menu-open{
+        overflow:auto;
+    }
+
+    .navbar{
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        gap:16px;
+        padding:16px var(--gutter);
+    }
+
+    .search-container{
+        max-width:400px;
+    }
+
+    .product-grid{
+        gap:20px;
+    }
+}
+
+/* ---------- Desktop: 905px and up ---------- */
+@media(min-width:56.5625em){
+    :root{
+        --gutter:32px;
+    }
+
+    /* Full horizontal navigation, always visible */
+    /* A13: allowed to wrap onto a 2nd row when text is enlarged,
+       instead of pushing "Bag" off the right edge */
+    .navbar{
+        flex-direction:row;
+        flex-wrap:wrap;
+        justify-content:space-between;
+        row-gap:.75rem;
+    }
+
+    .right-nav{
+        flex-wrap:wrap;
+        justify-content:flex-end;
+    }
+
+    .search-container{
+        width:18.75rem;   /* A13: rem so it widens with larger text */
+    }
+
+    .product-grid{
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:24px;
+    }
+
+    footer{
+        gap:0 40px;
+    }
+}
+
+@media(prefers-reduced-motion:reduce){
+    *,
+    *::before,
+    *::after{
+        scroll-behavior:auto !important;
+        transition-duration:.01ms !important;
+        animation-duration:.01ms !important;
+    }
+}
+
+/* =========================================================
+   ACCOUNT PAGE ONLY (A12: form validation)
+   Red = error, green = success. Both colors are always paired
+   with an icon + text, so color is never the only signal.
+   ========================================================= */
+
+.visually-hidden{
+    position:absolute;
+    width:1px;
+    height:1px;
+    overflow:hidden;
+    clip:rect(0 0 0 0);
+    white-space:nowrap;
+}
+
+.account-page{
+    padding:24px var(--gutter) 40px;
+}
+
+.account-card{
+    max-width:520px;
+    margin:0 auto;
+}
+
+.account-card h1{
+    margin-bottom:8px;
+    font-size:1.5rem;
+}
+
+.account-intro{
+    margin-bottom:24px;
+    color:var(--text-muted);
+    font-size:.9rem;
+}
+
+/* ---------- Fields ---------- */
+.field{
+    margin-bottom:12px;
+}
+
+.field label{
+    display:block;
+    margin-bottom:6px;
+    font-size:.9rem;
+    font-weight:bold;
+}
+
+.req{
+    color:var(--error);
+}
+
+.optional{
+    color:var(--text-muted);
+    font-weight:normal;
+}
+
+.input-wrap{
+    position:relative;
+}
+
+.input-wrap input{
+    width:100%;
+    min-height:48px;
+    padding:10px 44px 10px 12px;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+    /* border color + ring ease in, not snap (focus + error + success) */
+    transition:border-color .2s ease, box-shadow .2s ease;
+}
+
+.input-wrap input::placeholder{
+    color:var(--text-muted);
+}
+
+/* A13: inputs keep the global focus outline (was outline:none) */
+.input-wrap input:focus{
+    border-color:var(--border-strong);
+}
+
+/* Password field has room for the Show button too */
+[data-field="password"] .input-wrap input{
+    padding-right:110px;
+}
+
+.field-hint{
+    margin-top:6px;
+    color:var(--text-muted);
+    font-size:.8rem;
+}
+
+/* The message line under each field.
+   Space for it is ALWAYS reserved (min-height), so when a message
+   appears the fields below don't jump down. Without this, leaving
+   a field could shift the next field out from under your finger. */
+.field-msg{
+    display:flex;
+    align-items:flex-start;
+    gap:6px;
+    min-height:1.45em;
+    margin-top:6px;
+    font-size:.85rem;
+    font-weight:bold;
+    line-height:1.35;
+}
+
+/* Password messages can run to two lines on phones */
+[data-field="password"] .field-msg{
+    min-height:2.8em;
+}
+
+/* Icon inside the input (right side): ! for error, check for success */
+.field-icon{
+    position:absolute;
+    top:50%;
+    right:12px;
+    width:20px;
+    height:20px;
+    transform:translateY(-50%) scale(.6);
+    opacity:0;
+    background-repeat:no-repeat;
+    background-position:center;
+    background-size:20px;
+    transition:opacity .2s ease, transform .2s ease;
+    pointer-events:none;
+}
+
+[data-field="password"] .field-icon{
+    right:72px;
+}
+
+/* ---------- Error state ---------- */
+.field.is-invalid input{
+    border-color:var(--error);
+    border-width:2px;
+}
+
+.field.is-invalid input:focus-visible{
+    outline-color:var(--error);
+}
+
+.field.is-invalid .field-msg{
+    color:var(--error);
+    /* message slides in from above so it reads as attached to the field */
+    animation:msg-in .2s ease-out;
+}
+
+.field.is-invalid .field-msg::before{
+    content:"!";
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    width:16px;
+    height:16px;
+    margin-top:1px;
+    border-radius:50%;
+    background:var(--error);
+    color:var(--bg);
+    font-size:0.6875rem;
+}
+
+.field.is-invalid .field-icon{
+    opacity:1;
+    transform:translateY(-50%) scale(1);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%23b3261e'/%3E%3Cpath d='M12 7v6M12 16.5v.5' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* ---------- Success state ---------- */
+.field.is-valid input{
+    border-color:var(--success);
+}
+
+.field.is-valid .field-msg{
+    color:var(--success);
+    animation:msg-in .2s ease-out;
+}
+
+.field.is-valid .field-msg::before{
+    content:"\2713";
+    flex-shrink:0;
+}
+
+.field.is-valid .field-icon{
+    opacity:1;
+    transform:translateY(-50%) scale(1);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%231b7f3b'/%3E%3Cpath d='M7.5 12.5l3 3 6-6.5' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+@keyframes msg-in{
+    from{ opacity:0; transform:translateY(-4px); }
+    to{ opacity:1; transform:translateY(0); }
+}
+
+/* ---------- Show / Hide password ---------- */
+.toggle-password{
+    position:absolute;
+    top:50%;
+    right:4px;
+    min-width:60px;
+    min-height:40px;
+    border:0;
+    background:none;
+    color:var(--text);
+    font-size:.85rem;
+    font-weight:bold;
+    text-decoration:underline;
+    text-underline-offset:3px;
+    cursor:pointer;
+    transform:translateY(-50%);
+}
+
+/* ---------- Password strength + checklist ---------- */
+.strength{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-top:8px;
+    font-size:.8rem;
+    color:var(--text-muted);
+}
+
+.strength-bar{
+    flex:1;
+    height:6px;
+    overflow:hidden;
+    background:var(--surface-2);
+}
+
+.strength-bar span{
+    display:block;
+    width:0;
+    height:100%;
+    background:var(--error);
+    transition:width .3s ease, background-color .3s ease;
+}
+
+.strength[data-level="2"] .strength-bar span{ background:#b26a00; }
+.strength[data-level="3"] .strength-bar span{ background:#b26a00; }
+.strength[data-level="4"] .strength-bar span{ background:var(--success); }
+
+.password-rules{
+    margin-top:8px;
+    list-style:none;
+    font-size:.82rem;
+}
+
+.password-rules li{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:2px 0;
+    color:var(--text-muted);
+    transition:color .2s ease;
+}
+
+/* Empty circle = not met yet, check = met */
+.password-rules li::before{
+    content:"";
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:14px;
+    height:14px;
+    border:1.5px solid currentColor;
+    border-radius:50%;
+    font-size:0.625rem;
+    transition:background-color .2s ease;
+}
+
+.password-rules li.is-met{
+    color:var(--success);
+    font-weight:bold;
+}
+
+.password-rules li.is-met::before{
+    content:"\2713";
+    border-color:var(--success);
+    background:var(--success);
+    color:var(--bg);
+}
+
+/* Rules not met after you leave the field turn red */
+.field.is-invalid .password-rules li:not(.is-met){
+    color:var(--error);
+}
+
+/* ---------- Checkboxes ---------- */
+.check-label{
+    display:flex !important;
+    align-items:center;
+    gap:10px;
+    min-height:var(--tap);
+    margin-bottom:0 !important;
+    font-weight:normal !important;
+    cursor:pointer;
+}
+
+/* Custom square checkbox so the error state is a clear red square
+   in both light + dark mode */
+.check-label input{
+    appearance:none;
+    -webkit-appearance:none;
+    display:inline-grid;
+    place-content:center;
+    flex-shrink:0;
+    width:22px;
+    height:22px;
+    margin:0;
+    border:2px solid var(--border-strong);
+    background:var(--bg);
+    cursor:pointer;
+    transition:border-color .2s ease, background-color .2s ease;
+}
+
+.check-label input::after{
+    content:"";
+    width:11px;
+    height:6px;
+    border-left:2.5px solid var(--fill-text);
+    border-bottom:2.5px solid var(--fill-text);
+    transform:rotate(-45deg) translate(1px,-1px) scale(0);
+    transition:transform .15s ease;
+}
+
+.check-label input:checked{
+    border-color:var(--fill);
+    background:var(--fill);
+}
+
+.check-label input:checked::after{
+    transform:rotate(-45deg) translate(1px,-1px) scale(1);
+}
+
+.check-label input:focus-visible{
+    outline:2px solid var(--text);
+    outline-offset:2px;
+}
+
+/* Checkboxes: no visible message line (the red box says it all).
+   The message is still read out by screen readers, it just takes
+   up no space on screen. */
+.field-check{
+    margin-bottom:0;
+}
+
+.field-check .field-msg{
+    position:absolute;
+    width:1px;
+    height:1px;
+    min-height:0;
+    margin:0;
+    overflow:hidden;
+    clip:rect(0 0 0 0);
+    white-space:nowrap;
+}
+
+/* Missing required checkbox = red square */
+.field-check.is-invalid .check-label input{
+    border-color:var(--error);
+    background:var(--error-ring);
+}
+
+/* Keep the space before the button the same as between fields */
+.field-check:last-of-type{
+    margin-bottom:12px;
+}
+
+/* ---------- Submit ---------- */
+.account-submit{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    min-height:52px;
+    margin-top:8px;
+    border:1px solid var(--fill);
+    background:var(--fill);
+    color:var(--fill-text);
+    font-weight:bold;
+    cursor:pointer;
+    transition:opacity .2s ease;
+}
+
+.account-submit:hover{
+    opacity:.85;
+}
+
+.account-submit:disabled{
+    cursor:progress;
+}
+
+.form-status{
+    margin-top:12px;
+    font-size:.9rem;
+    font-weight:bold;
+}
+
+.form-status.is-error{
+    color:var(--error);
+}
+
+/* ---------- Success screen ---------- */
+.account-success{
+    padding:32px 24px;
+    border:1px solid var(--border-strong);
+    text-align:center;
+    animation:fade-up .35s ease-out both;
+}
+
+.account-success[hidden]{
+    display:none;
+}
+
+.account-success:focus{
+    outline:none;
+}
+
+.success-icon{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:56px;
+    height:56px;
+    margin-bottom:16px;
+    border-radius:50%;
+    background:var(--success);
+    color:#fff;
+}
+
+.success-text{
+    margin-bottom:24px;
+    color:var(--text-muted);
+}
+
+.success-actions{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+
+.success-shop,
+.success-home{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:var(--tap);
+    padding:0 20px;
+    border:1px solid var(--border-strong);
+    font-weight:bold;
+    text-decoration:none;
+}
+
+.success-shop{
+    background:var(--fill);
+    color:var(--fill-text);
+}
+
+.success-home{
+    background:var(--bg);
+    color:var(--text);
+}
+
+@media(min-width:37.5em){
+    .account-page{
+        padding-top:40px;
+    }
+
+    .success-actions{
+        flex-direction:row;
+        justify-content:center;
+    }
+}
+
+/* Dark mode: the soft pink error color looked washed out on a small
+   box, so the empty required checkbox uses a stronger red */
+html.dark .field-check.is-invalid .check-label input{
+    border-color:#ff6b6b;
+    background:rgba(255,107,107,.15);
+}
+
+
+/* =========================================================
+   A13: ACCESSIBILITY + DARK MODE
+   ========================================================= */
+
+/* Text sizes are in rem (relative to the browser's font size), so
+   they grow when someone zooms or sets a larger default font. */
+html{
+    font-size:100%;
+    color-scheme:light;
+}
+
+html.dark{
+    color-scheme:dark;
+}
+
+/* ---------- Dark mode switch ---------- */
+.dark-btn{
+    gap:.5rem;
+    white-space:nowrap;
+}
+
+.switch-track{
+    position:relative;
+    display:inline-block;
+    flex-shrink:0;
+    width:2.25rem;
+    height:1.25rem;
+    border:2px solid currentColor;
+    border-radius:1rem;
+    transition:background-color .2s ease;
+}
+
+.switch-thumb{
+    position:absolute;
+    top:50%;
+    left:2px;
+    width:.75rem;
+    height:.75rem;
+    border-radius:50%;
+    background:currentColor;
+    transform:translateY(-50%);
+    transition:left .2s ease, background-color .2s ease;
+}
+
+/* ON: track fills in, knob slides right + turns the background color */
+.dark-btn[aria-checked="true"] .switch-track{
+    background:currentColor;
+}
+
+.dark-btn[aria-checked="true"] .switch-thumb{
+    left:calc(100% - .75rem - 2px);
+    background:var(--bg);
+}
+
+.dark-btn:hover[aria-checked="true"] .switch-thumb{
+    background:var(--fill);
+}
+
+.switch-state{
+    min-width:1.6em;
+    font-size:.8125rem;
+    font-weight:bold;
+    text-align:left;
+}
+
+.theme-icon{
+    flex-shrink:0;
+}
+
+/* Mobile menu: switch row spans the width, state on the right */
+.mobile-sidebar .dark-btn{
+    justify-content:flex-start;
+}
+
+.mobile-sidebar .dark-btn .switch-track{
+    margin-left:auto;
+}
+
+/* ---------- Hero caption contrast ----------
+   White text sits on a 65% black plate, so it passes 4.5:1 on ANY
+   photo (even a white one, or if the photo fails to load). */
+.hero h1{
+    padding:.2em .5em;
+    background:rgba(0,0,0,.65);
+}
+
+/* Image links: draw the focus ring inside (the hero clips overflow) */
+.hero-link:focus-visible{
+    outline-offset:-6px;
+    box-shadow:none;
+}
+
+/* Main gets focus from the skip link; no ring needed on the region */
+main:focus{
+    outline:none;
+}
+
+/* Dark mode: brighter error/success icons inside form fields so
+   they keep 3:1 against the dark input background */
+html.dark .field.is-invalid .field-icon{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%23f2b8b5'/%3E%3Cpath d='M12 7v6M12 16.5v.5' stroke='%23121212' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+html.dark .field.is-valid .field-icon{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%2381c995'/%3E%3Cpath d='M7.5 12.5l3 3 6-6.5' fill='none' stroke='%23121212' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Windows High Contrast / forced colors: keep the switch + focus visible */
+@media (forced-colors: active){
+    .switch-track,
+    .switch-thumb{
+        forced-color-adjust:none;
+        border-color:ButtonText;
+    }
+
+    .switch-thumb,
+    .dark-btn[aria-checked="true"] .switch-track{
+        background:ButtonText;
+    }
+}
+
+/* A13 (200% zoom check): tiny thumbnails are too small for the
+   "Image unavailable" text, so they just show the grey box */
+.gallery-thumbnail.is-broken-img::before{
+    content:"";
+}
+</style>
+</head>
+<body data-page="account">
+
+<!-- A13: lets keyboard + screen reader users jump past the header -->
+<a class="skip-link" href="#main">Skip to main content</a>
+
+<!-- Loading overlay: shown for a moment before moving to a new page
+     (simulates the loading state from the Figma prototype) -->
+<div class="search-loading" role="status" aria-live="polite" hidden>
+    <span class="loading-spinner" aria-hidden="true"></span>
+    <span class="loading-text">Loading results...</span>
+</div>
+
+<header>
+
+    <!-- MOBILE HEADER (under 600px): hamburger + logo -->
+    <div class="mobile-header">
+        <!-- A11: bag icon on the right of the mobile header (Figma) -->
+        <a class="mobile-bag bag-link" href="#bag-drawer" aria-controls="bag-drawer" aria-label="Open bag">
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1 12H7L6 8z M9 8V6a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span class="bag-count">0</span>
+        </a>
+        <a class="logo" href="homepage.html" aria-label="ZARA homepage">ZARA</a>
+        <button class="mobile-menu-button" type="button" aria-expanded="false" aria-controls="mobile-sidebar" aria-label="Open menu">
+            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+    </div>
+
+    <!-- NEW (A11): search bar sits right under the mobile header, like the
+         Figma mobile screens (it used to be hidden inside the menu) -->
+    <div class="mobile-search">
+            <div class="search-container">
+                <!-- Magnifier icon (decorative) -->
+                <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <input
+                    class="search-box"
+                    type="text"
+                    role="combobox"
+                    placeholder="Search for an item"
+                    aria-label="Search for an item"
+                    aria-autocomplete="list"
+                    aria-expanded="false"
+                    aria-controls="mobile-search-suggestions"
+                    autocomplete="off">
+                <!-- NEW (A11): clear button, appears once you type -->
+                <button class="search-clear" type="button" aria-label="Clear search" hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                </button>
+                <!-- Suggestions are built by the script as you type -->
+                <div class="search-suggestions" id="mobile-search-suggestions" role="listbox" aria-label="Search suggestions" hidden></div>
+            </div>
+    </div>
+
+    <!-- DESKTOP NAVBAR (600px and up): full horizontal navigation -->
+    <nav class="navbar" aria-label="Main navigation">
+
+        <div class="left-nav">
+
+            <a class="logo" href="homepage.html" aria-label="ZARA homepage">ZARA</a>
+
+            <ul class="nav-links">
+                <li><a href="productpage.html?category=Woman">Woman</a></li>
+                <li><a href="productpage.html?category=Man">Man</a></li>
+                <li><a href="productpage.html?category=Kids">Kids</a></li>
+                <li><a href="productpage.html?category=Sale">Sale</a></li>
+            </ul>
+
+        </div>
+
+        <div class="right-nav">
+
+            <div class="search-container">
+                <!-- Magnifier icon (decorative) -->
+                <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <input
+                    class="search-box"
+                    type="text"
+                    role="combobox"
+                    placeholder="Search for an item"
+                    aria-label="Search for an item"
+                    aria-autocomplete="list"
+                    aria-expanded="false"
+                    aria-controls="search-suggestions"
+                    autocomplete="off">
+                <!-- NEW (A11): clear button, appears once you type -->
+                <button class="search-clear" type="button" aria-label="Clear search" hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                </button>
+                <!-- Suggestions are built by the script as you type -->
+                <div class="search-suggestions" id="search-suggestions" role="listbox" aria-label="Search suggestions" hidden></div>
+            </div>
+
+            <!-- Label switches between "Dark mode" and "Light mode" (JS) -->
+            <button class="dark-btn" type="button" role="switch" aria-checked="false">
+                <!-- A13: a real on/off switch, so you can SEE which mode is on -->
+                <svg class="theme-icon" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                <span class="theme-label">Dark mode</span>
+                <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                <span class="switch-state" aria-hidden="true">Off</span>
+            </button>
+
+            <!-- A12: Account opens the Create account form -->
+            <a class="icon-link account-link" href="account.html">Account</a>
+            <!-- A11 (critique): Bag now opens a working bag panel -->
+            <a class="icon-link bag-link" href="#bag-drawer" aria-controls="bag-drawer">Bag (<span class="bag-count">0</span>)</a>
+
+        </div>
+
+    </nav>
+
+</header>
+
+<!-- MOBILE SIDEBAR: slides in from the left when the hamburger is tapped -->
+<div class="mobile-overlay" aria-hidden="true"></div>
+<aside class="mobile-sidebar" id="mobile-sidebar" aria-label="Mobile navigation" aria-hidden="true">
+    <div class="mobile-sidebar-header">
+        <a class="logo" href="homepage.html" aria-label="ZARA homepage">ZARA</a>
+        <button class="mobile-sidebar-close" type="button" aria-label="Close menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+    </div>
+    <ul class="nav-links">
+        <li><a href="productpage.html?category=Woman">Woman</a></li>
+        <li><a href="productpage.html?category=Man">Man</a></li>
+        <li><a href="productpage.html?category=Kids">Kids</a></li>
+        <li><a href="productpage.html?category=Sale">Sale</a></li>
+    </ul>
+    <button class="dark-btn" type="button" role="switch" aria-checked="false">
+                <!-- A13: a real on/off switch, so you can SEE which mode is on -->
+                <svg class="theme-icon" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                <span class="theme-label">Dark mode</span>
+                <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                <span class="switch-state" aria-hidden="true">Off</span>
+            </button>
+    <a class="icon-link account-link" href="account.html">Account</a>
+    <a class="icon-link bag-link" href="#bag-drawer" aria-controls="bag-drawer">Bag (<span class="bag-count">0</span>)</a>
+</aside>
+
+<!-- A11 (critique: "have a working bag section"): slide-in bag panel.
+     Opens from any Bag link, lists what you added, lets you remove
+     items, and has a demo checkout with a loading state. -->
+<div class="bag-overlay" aria-hidden="true"></div>
+<aside class="bag-drawer" id="bag-drawer" aria-label="Shopping bag" aria-hidden="true">
+    <div class="bag-header">
+        <h2>Bag (<span class="bag-count">0</span>)</h2>
+        <button class="bag-close" type="button" aria-label="Close bag">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+    </div>
+    <ul class="bag-items"></ul>
+    <div class="bag-empty">
+        <p>Your bag is empty.</p>
+        <a class="bag-shop-link" href="productpage.html">Start shopping</a>
+    </div>
+    <div class="bag-footer">
+        <!-- A12: subtotal so the bag works like a real one -->
+        <p class="bag-subtotal"><span>Subtotal</span><span class="bag-subtotal-amount">$0.00</span></p>
+        <p class="bag-status" role="status" aria-live="polite"></p>
+        <button class="bag-checkout" type="button">Checkout</button>
+    </div>
+</aside>
+
+<!-- Critique (Group 10): "Limit the amount of window transitions to get
+     to certain parts of the website." Quick add lets you pick a size +
+     add to the bag straight from a product card, without opening the
+     product page. -->
+<dialog class="quick-add" id="quick-add" aria-labelledby="quick-add-title">
+    <div class="quick-add-inner">
+        <button class="quick-add-close" type="button" aria-label="Close quick add">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="quick-add-image product-image"><img alt=""></div>
+        <div class="quick-add-info">
+            <h2 id="quick-add-title"></h2>
+            <p class="quick-add-price price"></p>
+            <p class="quick-add-label">Select size</p>
+            <div class="quick-add-sizes" role="group" aria-label="Choose a size"></div>
+            <p class="quick-add-note" role="status" aria-live="polite">Select a size to continue.</p>
+            <button class="quick-add-submit" type="button">Add to bag</button>
+            <a class="quick-add-details" href="#">View full details</a>
+        </div>
+    </div>
+</dialog>
+<!-- NOT BUILT YET: the Figma mobile screens also have a bottom tab bar
+     (Home, Search, Saved, Account). It is not part of this submission. -->
+
+<div class="breadcrumb">
+    <a href="homepage.html">Home</a>
+    <span aria-hidden="true">&rsaquo;</span>
+    <span>Account</span>
+    <span aria-hidden="true">&rsaquo;</span>
+    <span aria-current="page">Create account</span>
+</div>
+
+<main id="main" tabindex="-1" class="account-page">
+
+<!-- =========================================================
+     A12: CREATE ACCOUNT FORM (from the Figma "Create account" screen)
+     - Each field checks itself when you leave it (blur), then again
+       on every keystroke after that, so errors clear the moment
+       they're fixed.
+     - Every message sits right under its own field and says what
+       to fix. Valid fields show a check + "Looks good".
+     - novalidate turns off the browser's own pop-up bubbles so our
+       inline messages are the only ones you see.
+     ========================================================= -->
+<section class="account-card" aria-labelledby="account-title">
+
+    <div class="account-form-view">
+        <h1 id="account-title">Create account</h1>
+        <p class="account-intro">Save your bag, track orders and check out faster. Fields marked <span aria-hidden="true">*</span><span class="visually-hidden">with an asterisk</span> are required.</p>
+
+        <form class="account-form" novalidate>
+
+            <!-- Name -->
+            <div class="field" data-field="name">
+                <label for="full-name">Name <span class="req" aria-hidden="true">*</span></label>
+                <div class="input-wrap">
+                    <input id="full-name" name="name" type="text" autocomplete="name" required
+                           aria-describedby="name-hint name-msg">
+                    <span class="field-icon" aria-hidden="true"></span>
+                </div>
+                <p class="field-hint" id="name-hint">Any name you'd like us to call you.</p>
+                <p class="field-msg" id="name-msg" aria-live="polite"></p>
+            </div>
+
+            <!-- Email -->
+            <div class="field" data-field="email">
+                <label for="email">Email address <span class="req" aria-hidden="true">*</span></label>
+                <div class="input-wrap">
+                    <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required
+                           aria-describedby="email-hint email-msg">
+                    <span class="field-icon" aria-hidden="true"></span>
+                </div>
+                <p class="field-hint" id="email-hint">We'll send order updates here. Example: name@example.com</p>
+                <p class="field-msg" id="email-msg" aria-live="polite"></p>
+            </div>
+
+            <!-- Phone (optional) -->
+            <div class="field" data-field="phone">
+                <label for="phone">Phone number <span class="optional">(optional)</span></label>
+                <div class="input-wrap">
+                    <input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel"
+                           placeholder="(704) 555-0123" aria-describedby="phone-hint phone-msg">
+                    <span class="field-icon" aria-hidden="true"></span>
+                </div>
+                <p class="field-hint" id="phone-hint">For delivery texts only. We format it for you as you type.</p>
+                <p class="field-msg" id="phone-msg" aria-live="polite"></p>
+            </div>
+
+            <!-- Password -->
+            <div class="field" data-field="password">
+                <label for="password">Password <span class="req" aria-hidden="true">*</span></label>
+                <div class="input-wrap">
+                    <input id="password" name="password" type="password" autocomplete="new-password" required
+                           aria-describedby="password-rules password-msg">
+                    <span class="field-icon" aria-hidden="true"></span>
+                    <button class="toggle-password" type="button" aria-controls="password" aria-pressed="false">Show</button>
+                </div>
+                <!-- Strength bar + checklist update on every keystroke -->
+                <div class="strength" aria-hidden="true">
+                    <span class="strength-bar"><span></span></span>
+                    <span class="strength-label">Strength: none yet</span>
+                </div>
+                <ul class="password-rules" id="password-rules" aria-label="Password must have">
+                    <li data-rule="length">At least 8 characters</li>
+                    <li data-rule="upper">One uppercase letter (A-Z)</li>
+                    <li data-rule="number">One number (0-9)</li>
+                    <li data-rule="symbol">One symbol, like ! @ # or $</li>
+                </ul>
+                <p class="field-msg" id="password-msg" aria-live="polite"></p>
+            </div>
+
+            <!-- Confirm password -->
+            <div class="field" data-field="confirm">
+                <label for="confirm-password">Confirm password <span class="req" aria-hidden="true">*</span></label>
+                <div class="input-wrap">
+                    <input id="confirm-password" name="confirm" type="password" autocomplete="new-password" required
+                           aria-describedby="confirm-msg">
+                    <span class="field-icon" aria-hidden="true"></span>
+                </div>
+                <p class="field-msg" id="confirm-msg" aria-live="polite"></p>
+            </div>
+
+            <!-- Terms -->
+            <div class="field field-check" data-field="terms">
+                <label class="check-label" for="terms">
+                    <input id="terms" name="terms" type="checkbox" required aria-describedby="terms-msg">
+                    <span>I agree to the Terms of Use and Privacy Policy <span class="req" aria-hidden="true">*</span></span>
+                </label>
+                <p class="field-msg" id="terms-msg" aria-live="polite"></p>
+            </div>
+
+            <!-- Newsletter (optional, never an error) -->
+            <div class="field field-check">
+                <label class="check-label" for="newsletter">
+                    <input id="newsletter" name="newsletter" type="checkbox">
+                    <span>Email me about new arrivals and sales</span>
+                </label>
+            </div>
+
+            <!-- Submit: shows a spinner while the account is created -->
+            <button class="account-submit" type="submit">Create account</button>
+            <!-- Short note BY the button pointing back to the fields (the
+                 real messages are still next to each field) -->
+            <p class="form-status" role="status" aria-live="polite"></p>
+
+        </form>
+    </div>
+
+    <!-- Confirmation screen (Figma M7d) shown after a successful submit -->
+    <div class="account-success" hidden tabindex="-1">
+        <div class="success-icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h1 class="success-title">Welcome!</h1>
+        <p class="success-text">Your account is ready.</p>
+        <div class="success-actions">
+            <a class="success-shop" href="productpage.html">Start shopping</a>
+            <a class="success-home" href="homepage.html">Back to home</a>
+        </div>
+    </div>
+
+</section>
+
+</main>
+
+<footer>
+
+    <!-- TODO: footer pages are not built yet (placeholder links) -->
+    <a href="#">Help &amp; Orders</a>
+    <a href="#">Shipping</a>
+    <a href="#">Returns</a>
+    <a href="#">Contact</a>
+
+</footer>
+
+<script>
+
+/* =========================================================
+   SHARED SCRIPT (identical on every page)
+   ========================================================= */
+
+/* ---------- Light / dark mode ----------
+   FIX: dark mode used to reset to light every time you went to
+   another page. The choice is now saved in localStorage and
+   re-applied on every page (the tiny script in <head> applies
+   it before the page paints so there is no white flash). */
+const THEME_KEY = "zara-theme";
+const darkButtons = document.querySelectorAll(".dark-btn");
+
+/* A13: no saved choice yet = follow the device's light/dark setting */
+function getSystemTheme(){
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function getSavedTheme(){
+    try{
+        return localStorage.getItem(THEME_KEY) || getSystemTheme();
+    }catch(error){
+        return getSystemTheme();
+    }
+}
+
+function saveTheme(theme){
+    try{
+        localStorage.setItem(THEME_KEY, theme);
+    }catch(error){
+        /* storage blocked: theme still works on this page */
+    }
+}
+
+function applyTheme(theme){
+    const isDark = theme === "dark";
+    document.documentElement.classList.toggle("dark", isDark);
+
+    /* A13: the switch shows the CURRENT mode. Before, the button said
+       what it would switch to ("Light mode" while dark), which read
+       backwards. Now: knob slides right + "On" when dark is active,
+       and screen readers hear "Dark mode, switch, on/off". */
+    darkButtons.forEach(button => {
+        button.setAttribute("aria-checked", String(isDark));
+        button.querySelector(".switch-state").textContent = isDark ? "On" : "Off";
+        button.title = isDark ? "Dark mode is on. Click to turn it off." : "Dark mode is off. Click to turn it on.";
+    });
+    /* tell the browser too, so scrollbars + form controls match */
+    document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+}
+
+applyTheme(getSavedTheme());
+
+darkButtons.forEach(button => {
+    button.addEventListener("click", () => {
+        const nextTheme = document.documentElement.classList.contains("dark") ? "light" : "dark";
+        applyTheme(nextTheme);
+        saveTheme(nextTheme);
+    });
+});
+
+/* Keep other open tabs of the site in sync */
+window.addEventListener("storage", event => {
+    if(event.key === THEME_KEY){
+        applyTheme(event.newValue || getSystemTheme());
+    }
+});
+
+/* ---------- Product catalog (A11) ----------
+   One list of products that search, suggestions, the results page
+   and the product page all read from, so they always agree.
+   A12 (feedback): real prices replace the $00.00 placeholders. Our
+   group told Lamar to swap placeholders for real content, so we did
+   the same. Sale items show a crossed-out old price. */
+const IMG = id => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=600&q=80`;
+const THUMB = id => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=120&q=60`;
+
+const PRODUCTS = [
+    {name:"Shirt",             price:35.90, type:"Tops",        keywords:["shirt","top","blouse"],              categories:["Woman"],                 image:"1529139574466-a303027c1d8b", alt:"Model wearing a seasonal outfit"},
+    {name:"Jeans",             price:49.90, type:"Bottoms",     keywords:["jeans","denim","pants"],             categories:["Woman","Man"],           image:"1541099649105-f69ad21f3246", alt:"Denim jeans"},
+    {name:"T-Shirt",           price:19.90, type:"Tops",        keywords:["t-shirt","tee","top","shirt"],       categories:["Man","Kids"],            image:"1521572163474-6864f9cf17ab", alt:"Casual T-shirt"},
+    {name:"Sneakers",          price:69.90, was:89.90, type:"Shoes",       keywords:["sneakers","shoes","trainers"],       categories:["Man","Kids","Sale"],     image:"1542291026-7eec264c27ff",    alt:"Red sneaker"},
+    {name:"Handbag",           price:45.90, was:59.90, type:"Bags",        keywords:["bag","handbag","purse"],             categories:["Woman","Sale"],          image:"1548036328-c9fa89d128fa",    alt:"Handbag"},
+    {name:"Joggers",           price:39.90, type:"Bottoms",     keywords:["joggers","pants","sweatpants"],      categories:["Woman","Kids"],          image:"1515886657613-9f3515b0c78f", alt:"Model wearing a fashion outfit"},
+    {name:"Puffer Jacket",     price:89.90, type:"Outerwear",   keywords:["jacket","coat","puffer","winter"],   categories:["Man","Kids"],            image:"1548126032-079a0fb0099d",    alt:"Fashion clothing"},
+    {name:"Linen Dress",       price:59.90, type:"Dresses",     keywords:["dress","dresses","linen","summer"],  categories:["Woman"],                 image:"1539109136881-3be0616acf4b", alt:"Model wearing a summer dress"},
+    {name:"Leather Jacket",    price:129.00, was:169.00, type:"Outerwear",   keywords:["jacket","coat","leather"],           categories:["Woman","Man","Sale"],    image:"1551028719-00167b16eac5",    alt:"Leather jacket"},
+    {name:"Everyday Backpack", price:49.90, type:"Bags",        keywords:["bag","backpack","school"],           categories:["Man","Kids"],            image:"1553062407-98eeb64c6a62",    alt:"Everyday backpack"},
+    {name:"Canvas Sneakers",   price:45.90, was:59.90, type:"Shoes",       keywords:["sneakers","shoes","canvas"],         categories:["Woman","Kids","Sale"],   image:"1525966222134-fcfa99b8ae77", alt:"Canvas sneakers"}
+];
+
+/* Popular searches shown as suggestions when they match what you type */
+const SEARCH_TERMS = ["Dresses", "Jeans", "T-shirts", "Jackets", "Sneakers", "Bags", "Sale"];
+
+function normalize(text){
+    return text.toLowerCase().trim();
+}
+
+/* A product matches when EVERY word you typed appears somewhere in
+   its name, type, keywords or categories ("red shoes" style search).
+   Plural words also match their singular ("dresses" -> "dress"). */
+function productMatches(product, query){
+    const haystack = normalize([product.name, product.type, ...product.keywords, ...product.categories].join(" "));
+    return normalize(query).split(/\s+/).filter(Boolean).every(word =>
+        haystack.includes(word) || haystack.includes(word.replace(/e?s$/, ""))
+    );
+}
+
+function searchProducts(query, category){
+    return PRODUCTS.filter(product =>
+        (!category || product.categories.includes(category)) &&
+        (!normalize(query) || productMatches(product, query))
+    );
+}
+
+function findProduct(name){
+    return PRODUCTS.find(product => normalize(product.name) === normalize(name || ""));
+}
+
+/* $59.90 style money formatting */
+function formatPrice(amount){
+    return `$${amount.toFixed(2)}`;
+}
+
+/* Fills a price element: sale items get the old price crossed out */
+function fillPrice(element, product){
+    element.replaceChildren();
+    if(product.was){
+        const was = document.createElement("s");
+        was.className = "price-was";
+        was.textContent = formatPrice(product.was);
+        element.append(was, " ");
+    }
+    element.append(formatPrice(product.price));
+}
+
+/* ---------- Image loading states (A11) ----------
+   While an image downloads, its frame shows a shimmer (loading).
+   If it fails, the frame says "Image unavailable" (failed action
+   feedback) instead of a broken-image icon. */
+function watchImage(image){
+    const frame = image.parentElement;
+    frame.classList.remove("is-broken-img");
+
+    if(image.complete && image.naturalWidth > 0){
+        frame.classList.remove("is-loading-img");
+        return;
+    }
+
+    frame.classList.add("is-loading-img");
+    image.addEventListener("load", () => frame.classList.remove("is-loading-img"), {once:true});
+    image.addEventListener("error", () => {
+        frame.classList.remove("is-loading-img");
+        frame.classList.add("is-broken-img");
+    }, {once:true});
+}
+
+function watchImages(root = document){
+    root.querySelectorAll(".product-image img, .gallery-main img, .gallery-thumbnail img, .related-image img, .suggestion-thumb img")
+        .forEach(watchImage);
+}
+
+/* Swap an image and show the shimmer again until the new one loads */
+function setImageSource(image, src, alt){
+    image.src = src;
+    if(alt !== undefined){
+        image.alt = alt;
+    }
+    watchImage(image);
+}
+
+/* ---------- Shopping bag (A11, from critique) ----------
+   Critique (Nate, Group 9): "Have a working bag section."
+   The bag now stores the actual items (name, size, color, quantity)
+   in localStorage, so it's the same on every page. The Bag link
+   opens a slide-in bag panel (built further down). */
+const BAG_KEY = "zara-bag-items";
+
+function getBagItems(){
+    try{
+        return JSON.parse(localStorage.getItem(BAG_KEY)) || [];
+    }catch(error){
+        return [];
+    }
+}
+
+function saveBagItems(items){
+    try{
+        localStorage.setItem(BAG_KEY, JSON.stringify(items));
+    }catch(error){
+        /* storage blocked: bag still works until the page changes */
+    }
+}
+
+function getBagCount(){
+    return getBagItems().reduce((total, item) => total + item.qty, 0);
+}
+
+/* Updates every "Bag (n)" counter. bump:true plays the pop animation. */
+function updateBagCount(options = {}){
+    const count = getBagCount();
+    document.querySelectorAll(".bag-count").forEach(counter => {
+        counter.textContent = count;
+        if(options.bump){
+            /* restart the bump animation every time */
+            counter.classList.remove("bump");
+            void counter.offsetWidth;
+            counter.classList.add("bump");
+        }
+    });
+}
+
+/* Same product + size + color = increase quantity instead of a new row */
+function addBagItem(newItem){
+    const items = getBagItems();
+    const existing = items.find(item =>
+        item.name === newItem.name && item.size === newItem.size && item.color === newItem.color
+    );
+    if(existing){
+        existing.qty += 1;
+    }else{
+        items.push({...newItem, qty:1});
+    }
+    saveBagItems(items);
+    updateBagCount({bump:true});
+    renderBag();
+}
+
+/* ---------- Loading overlay + page changes ---------- */
+const searchLoading = document.querySelector(".search-loading");
+const pageParams = new URLSearchParams(window.location.search);
+const LOADING_DELAY = 800; /* same 800ms delay as the Figma prototype */
+const currentPage = document.body.dataset.page; /* "home", "results" or "product" */
+
+function showLoading(message = "Loading results..."){
+    searchLoading.querySelector(".loading-text").textContent = message;
+    searchLoading.hidden = false;
+    document.body.setAttribute("aria-busy", "true");
+}
+
+function hideLoading(){
+    searchLoading.hidden = true;
+    document.body.removeAttribute("aria-busy");
+}
+
+/* FIX: pressing the browser Back button used to bring back a page
+   that was still stuck on the loading screen. */
+window.addEventListener("pageshow", hideLoading);
+
+/* Results page (productpage.html) with ?category= or ?search= */
+function openProductPage(parameter, value){
+    showLoading();
+
+    window.setTimeout(() => {
+        const destination = new URL("productpage.html", window.location.href);
+        destination.searchParams.set(parameter, value);
+        window.location.href = destination.href;
+    }, LOADING_DELAY);
+}
+
+/* Product detail page (product.html). Passes the product name and
+   the current category so the breadcrumb + active nav stay correct.
+   A11: now shows the loading screen too, like every other page change. */
+function openProductDetails(productName){
+    showLoading("Loading product...");
+
+    window.setTimeout(() => {
+        const destination = new URL("product.html", window.location.href);
+        destination.searchParams.set("item", productName);
+
+        const category = pageParams.get("category");
+        if(category){
+            destination.searchParams.set("category", category);
+        }
+
+        window.location.href = destination.href;
+    }, LOADING_DELAY / 2);
+}
+
+/* A11: plain links between pages (logo, breadcrumb, Similar products)
+   also show the loading screen, so there's never a blank wait. */
+document.addEventListener("click", event => {
+    const link = event.target.closest("a[href]");
+    if(!link || event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || link.target){
+        return;
+    }
+    const href = link.getAttribute("href");
+    if(href.endsWith(".html") || href.includes(".html?")){
+        showLoading(link.closest(".related-card") ? "Loading product..." : "Loading...");
+    }
+});
+
+/* Makes a product card clickable (mouse, touch and keyboard) */
+function wireProductCard(card){
+    const productName = card.querySelector("h3").textContent.trim();
+
+    /* Quick add button on the photo (critique round 2) */
+    const imageBox = card.querySelector(".product-image");
+    if(imageBox && !imageBox.querySelector(".quick-add-button")){
+        const quickButton = document.createElement("button");
+        quickButton.type = "button";
+        quickButton.className = "quick-add-button";
+        quickButton.setAttribute("aria-label", `Quick add ${productName} to bag`);
+        quickButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span>Quick add</span>';
+        quickButton.addEventListener("click", event => {
+            event.stopPropagation();   /* don't also open the product page */
+            openQuickAdd(productName, quickButton);
+        });
+        quickButton.addEventListener("keydown", event => event.stopPropagation());
+        imageBox.appendChild(quickButton);
+    }
+
+    card.tabIndex = 0;
+    card.setAttribute("role", "link");
+    card.setAttribute("aria-label", `View ${productName}`);
+
+    card.addEventListener("click", () => openProductDetails(productName));
+    card.addEventListener("keydown", event => {
+        if(event.key === "Enter" || event.key === " "){
+            event.preventDefault();
+            openProductDetails(productName);
+        }
+    });
+}
+
+/* Builds one product card from the catalog (results page, empty state) */
+function createProductCard(product, index = 0){
+    const card = document.createElement("div");
+    card.className = "product-card fade-up";
+    card.style.setProperty("--i", index);
+    card.innerHTML = `
+        <div class="product-image"><img src="${IMG(product.image)}" alt=""></div>
+        <h3></h3>
+        <p class="price"></p>`;
+    card.querySelector("img").alt = product.alt;
+    card.querySelector("h3").textContent = product.name;
+    fillPrice(card.querySelector(".price"), product);
+    wireProductCard(card);
+    watchImages(card);
+    return card;
+}
+
+/* Grey placeholder card shown while results are "loading" */
+function createSkeletonCard(){
+    const card = document.createElement("div");
+    card.className = "skeleton-card";
+    card.setAttribute("aria-hidden", "true");
+    card.innerHTML = `
+        <div class="skeleton skeleton-image"></div>
+        <div class="skeleton skeleton-line"></div>
+        <div class="skeleton skeleton-line short"></div>`;
+    return card;
+}
+
+/* Homepage cards are written in the HTML, so just wire them up
+   (and fill in their real prices from the catalog) */
+document.querySelectorAll(".product-card").forEach(card => {
+    const product = findProduct(card.querySelector("h3").textContent);
+    if(product){
+        fillPrice(card.querySelector(".price"), product);
+    }
+    wireProductCard(card);
+});
+watchImages();
+
+/* =========================================================
+   SEARCH WITH LIVE SUGGESTIONS (A11)
+   - Suggestions update on every keystroke (no submit needed)
+   - Matching text is underlined + bold
+   - "No matches" message when nothing fits
+   - Clearing the box hides the suggestions (and on the results
+     page, resets the product list)
+   - Arrow keys + Enter work, Escape closes
+   ========================================================= */
+const searchBoxes = document.querySelectorAll(".search-box");
+
+/* Wraps the part of `text` that matches `query` in <mark> */
+function highlightMatch(text, query){
+    const fragment = document.createDocumentFragment();
+    const start = normalize(text).indexOf(normalize(query));
+
+    if(!normalize(query) || start === -1){
+        fragment.append(text);
+        return fragment;
+    }
+
+    const mark = document.createElement("mark");
+    mark.textContent = text.slice(start, start + query.trim().length);
+    fragment.append(text.slice(0, start), mark, text.slice(start + query.trim().length));
+    return fragment;
+}
+
+/* What happens when you pick a search term or press Enter.
+   On the results page the list is filtered in place (no reload);
+   anywhere else you go to the results page. */
+function runSearch(term){
+    searchBoxes.forEach(box => { box.value = term; });
+    if(currentPage === "results"){
+        document.dispatchEvent(new CustomEvent("livesearch", {detail:{query:term, commit:true}}));
+    }else{
+        openProductPage("search", term);
+    }
+}
+
+function setupSearch(searchContainer){
+    const searchBox = searchContainer.querySelector(".search-box");
+    const clearButton = searchContainer.querySelector(".search-clear");
+    const list = searchContainer.querySelector(".search-suggestions");
+    const listId = list.id;
+    let activeIndex = -1;
+
+    function options(){
+        return [...list.querySelectorAll("button[role='option']")];
+    }
+
+    function hideSuggestions(){
+        list.hidden = true;
+        list.replaceChildren();
+        activeIndex = -1;
+        searchBox.setAttribute("aria-expanded", "false");
+        searchBox.removeAttribute("aria-activedescendant");
+    }
+
+    function addGroupLabel(text){
+        const label = document.createElement("p");
+        label.className = "suggestion-group";
+        label.setAttribute("role", "presentation");
+        label.textContent = text;
+        list.appendChild(label);
+    }
+
+    function addOption(id, onPick, buildContent){
+        const button = document.createElement("button");
+        button.type = "button";
+        button.id = `${listId}-${id}`;
+        button.setAttribute("role", "option");
+        buildContent(button);
+        button.addEventListener("click", () => {
+            hideSuggestions();
+            onPick();
+        });
+        list.appendChild(button);
+    }
+
+    function renderSuggestions(){
+        const query = searchBox.value;
+        clearButton.hidden = !query;
+
+        /* Empty box = no suggestions (requirement) */
+        if(!normalize(query)){
+            hideSuggestions();
+            return;
+        }
+
+        list.replaceChildren();
+        activeIndex = -1;
+
+        const productMatchesList = searchProducts(query).slice(0, 4);
+        const termMatches = SEARCH_TERMS.filter(term => normalize(term).includes(normalize(query)));
+
+        if(productMatchesList.length === 0 && termMatches.length === 0){
+            /* No-match state inside the dropdown */
+            const empty = document.createElement("p");
+            empty.className = "suggestion-empty";
+            empty.setAttribute("role", "status");
+            empty.textContent = `No matches for "${query.trim()}". Try "dress", "jacket" or "bag".`;
+            list.appendChild(empty);
+        }
+
+        if(productMatchesList.length){
+            addGroupLabel("Products");
+            productMatchesList.forEach((product, index) => {
+                addOption(`p${index}`, () => openProductDetails(product.name), button => {
+                    const thumb = document.createElement("span");
+                    thumb.className = "suggestion-thumb";
+                    thumb.innerHTML = `<img src="${THUMB(product.image)}" alt="">`;
+
+                    const text = document.createElement("span");
+                    text.className = "suggestion-text";
+                    const name = document.createElement("span");
+                    name.append(highlightMatch(product.name, query));
+                    const meta = document.createElement("span");
+                    meta.className = "suggestion-meta";
+                    meta.textContent = `${formatPrice(product.price)} · ${product.type}`;
+                    text.append(name, meta);
+
+                    button.append(thumb, text);
+                });
+            });
+        }
+
+        if(termMatches.length){
+            addGroupLabel("Searches");
+            termMatches.forEach((term, index) => {
+                addOption(`t${index}`, () => runSearch(term), button => {
+                    /* wrapped in a span so the <mark> stays inline */
+                    const label = document.createElement("span");
+                    label.append(highlightMatch(term, query));
+                    button.append(label);
+                });
+            });
+        }
+
+        list.hidden = false;
+        searchBox.setAttribute("aria-expanded", "true");
+        watchImages(list);
+    }
+
+    function setActive(index){
+        const all = options();
+        if(!all.length){
+            return;
+        }
+        activeIndex = (index + all.length) % all.length;
+        all.forEach((option, i) => option.classList.toggle("is-active", i === activeIndex));
+        all[activeIndex].scrollIntoView({block:"nearest"});
+        searchBox.setAttribute("aria-activedescendant", all[activeIndex].id);
+    }
+
+    searchBox.addEventListener("input", () => {
+        /* keep the mobile + desktop boxes showing the same text */
+        searchBoxes.forEach(box => {
+            if(box !== searchBox){
+                box.value = searchBox.value;
+            }
+        });
+        renderSuggestions();
+        document.dispatchEvent(new CustomEvent("livesearch", {detail:{query:searchBox.value, commit:false}}));
+    });
+
+    searchBox.addEventListener("focus", () => {
+        if(searchBox.value){
+            renderSuggestions();
+        }
+    });
+
+    searchBox.addEventListener("keydown", event => {
+        if(event.key === "ArrowDown"){
+            event.preventDefault();
+            setActive(activeIndex + 1);
+        }else if(event.key === "ArrowUp"){
+            event.preventDefault();
+            setActive(activeIndex - 1);
+        }else if(event.key === "Escape"){
+            hideSuggestions();
+        }else if(event.key === "Enter"){
+            event.preventDefault();
+            const all = options();
+            if(activeIndex >= 0 && all[activeIndex]){
+                all[activeIndex].click();
+            }else if(normalize(searchBox.value)){
+                hideSuggestions();
+                runSearch(searchBox.value.trim());
+            }
+        }
+    });
+
+    /* Clear button: empties the box, hides suggestions, resets results */
+    clearButton.addEventListener("click", () => {
+        searchBoxes.forEach(box => { box.value = ""; });
+        document.querySelectorAll(".search-clear").forEach(button => { button.hidden = true; });
+        hideSuggestions();
+        searchBox.focus();
+        document.dispatchEvent(new CustomEvent("livesearch", {detail:{query:"", commit:true}}));
+    });
+
+    document.addEventListener("click", event => {
+        if(!searchContainer.contains(event.target)){
+            hideSuggestions();
+        }
+    });
+}
+
+document.querySelectorAll(".search-container").forEach(setupSearch);
+
+/* Show the clear button if a search term is already filled in */
+function syncSearchBoxes(value){
+    searchBoxes.forEach(box => { box.value = value; });
+    document.querySelectorAll(".search-clear").forEach(button => { button.hidden = !value; });
+}
+
+/* ---------- Mobile hamburger menu ---------- */
+const mobileMenuButton = document.querySelector(".mobile-menu-button");
+const mobileSidebar = document.querySelector(".mobile-sidebar");
+const mobileSidebarClose = document.querySelector(".mobile-sidebar-close");
+const mobileOverlay = document.querySelector(".mobile-overlay");
+
+function setMobileMenuOpen(isOpen){
+    mobileSidebar.classList.toggle("is-open", isOpen);
+    mobileOverlay.classList.toggle("is-open", isOpen);
+    document.body.classList.toggle("menu-open", isOpen);
+    mobileMenuButton.setAttribute("aria-expanded", String(isOpen));
+    mobileSidebar.setAttribute("aria-hidden", String(!isOpen));
+    /* inert = links in the closed menu can't be tabbed to */
+    mobileSidebar.inert = !isOpen;
+}
+
+setMobileMenuOpen(false);
+
+mobileMenuButton.addEventListener("click", () => {
+    setMobileMenuOpen(true);
+    mobileSidebarClose.focus();
+});
+
+mobileSidebarClose.addEventListener("click", () => {
+    setMobileMenuOpen(false);
+    mobileMenuButton.focus();
+});
+
+mobileOverlay.addEventListener("click", () => {
+    setMobileMenuOpen(false);
+});
+
+/* Menu closes after any selection inside it */
+mobileSidebar.querySelectorAll("a").forEach(link => {
+    link.addEventListener("click", () => setMobileMenuOpen(false));
+});
+
+document.addEventListener("keydown", event => {
+    if(event.key === "Escape" && mobileSidebar.classList.contains("is-open")){
+        setMobileMenuOpen(false);
+        mobileMenuButton.focus();
+    }
+});
+
+/* FIX: if the window is widened past the mobile breakpoint while
+   the menu is open, close it so the page doesn't stay locked. */
+window.matchMedia("(min-width: 37.5em)").addEventListener("change", event => {
+    if(event.matches){
+        setMobileMenuOpen(false);
+    }
+});
+
+/* ---------- Category navigation + active page ---------- */
+const activeCategory = pageParams.get("category");
+
+document.querySelectorAll(".nav-links a").forEach(link => {
+    const category = link.textContent.trim();
+
+    /* Highlight the category you are currently in
+       (desktop navbar and mobile sidebar) */
+    if(category === activeCategory){
+        link.setAttribute("aria-current", "page");
+    }
+
+    link.addEventListener("click", event => {
+        event.preventDefault();
+        setMobileMenuOpen(false);
+        openProductPage("category", category);
+    });
+});
+
+/* ---------- Bag panel (A11, from critique) ---------- */
+const bagDrawer = document.querySelector(".bag-drawer");
+const bagOverlay = document.querySelector(".bag-overlay");
+const bagItemsList = bagDrawer.querySelector(".bag-items");
+const bagEmpty = bagDrawer.querySelector(".bag-empty");
+const bagEmptyText = bagEmpty.querySelector("p");
+const bagFooter = bagDrawer.querySelector(".bag-footer");
+const bagStatus = bagDrawer.querySelector(".bag-status");
+const bagCheckout = bagDrawer.querySelector(".bag-checkout");
+const BAG_EMPTY_TEXT = "Your bag is empty.";
+let lastBagTrigger = null;
+
+/* Finds the saved copy of a bag item (same product, size + color) */
+function sameBagItem(a, b){
+    return a.name === b.name && a.size === b.size && a.color === b.color;
+}
+
+function createBagRow(item, index){
+    const product = findProduct(item.name);
+    const row = document.createElement("li");
+    row.className = "bag-item fade-up";
+    row.style.setProperty("--i", index);
+    row.innerHTML = `
+        <div class="product-image"><img alt=""></div>
+        <div>
+            <p class="bag-item-name"></p>
+            <p class="bag-item-meta"></p>
+            <p class="bag-item-price"></p>
+            <!-- Critique (Group 10): add + remove items right in the bag -->
+            <div class="qty-stepper" role="group">
+                <button class="qty-minus" type="button">&minus;</button>
+                <span class="qty-value" aria-live="polite"></span>
+                <button class="qty-plus" type="button">+</button>
+            </div>
+        </div>
+        <button class="bag-remove" type="button">Remove</button>`;
+
+    const image = row.querySelector("img");
+    if(product){
+        image.src = THUMB(product.image).replace("w=120", "w=200");
+        image.alt = product.alt;
+    }
+    row.querySelector(".bag-item-name").textContent = item.name;
+    row.querySelector(".bag-item-meta").textContent = `Size ${item.size} · ${item.color}`;
+
+    const minus = row.querySelector(".qty-minus");
+    const plus = row.querySelector(".qty-plus");
+    const qtyValue = row.querySelector(".qty-value");
+    row.querySelector(".qty-stepper").setAttribute("aria-label", `Quantity of ${item.name}`);
+    minus.setAttribute("aria-label", `One less ${item.name}`);
+    plus.setAttribute("aria-label", `One more ${item.name}`);
+
+    /* Updates this row in place (no flicker), plus the subtotal +
+       every Bag count on the page */
+    function showQty(qty){
+        qtyValue.textContent = qty;
+        minus.disabled = qty <= 1;          /* use Remove to take it out */
+        plus.disabled = qty >= 10;          /* max 10 of one item */
+        row.querySelector(".bag-item-price").textContent = product ? formatPrice(product.price * qty) : "";
+        bagDrawer.querySelector(".bag-subtotal-amount").textContent = formatPrice(getBagTotal());
+    }
+
+    function changeQty(delta){
+        const items = getBagItems();
+        const saved = items.find(entry => sameBagItem(entry, item));
+        if(!saved){
+            return;
+        }
+        saved.qty = Math.min(10, Math.max(1, saved.qty + delta));
+        item.qty = saved.qty;
+        saveBagItems(items);
+        showQty(saved.qty);
+        updateBagCount({bump:true});
+        bagStatus.textContent = `${item.name}: quantity ${saved.qty}.`;
+        if(saved.qty >= 10){
+            bagStatus.textContent = "You can add up to 10 of the same item.";
+        }
+    }
+
+    minus.addEventListener("click", () => changeQty(-1));
+    plus.addEventListener("click", () => changeQty(1));
+    showQty(item.qty);
+
+    const removeButton = row.querySelector(".bag-remove");
+    removeButton.setAttribute("aria-label", `Remove ${item.name}, size ${item.size}`);
+    removeButton.addEventListener("click", () => {
+        /* slide the row out first, then actually remove it */
+        removeButton.disabled = true;
+        removeButton.setAttribute("aria-busy", "true");
+        row.classList.remove("fade-up");
+        row.classList.add("is-removing");
+        window.setTimeout(() => {
+            saveBagItems(getBagItems().filter(saved => !sameBagItem(saved, item)));
+            renderBag();
+            updateBagCount({bump:true});
+            bagStatus.textContent = `Removed ${item.name}.`;
+        }, 250);
+    });
+
+    watchImages(row);
+    return row;
+}
+
+/* Total of everything in the bag (A12, feedback: working bag) */
+function getBagTotal(){
+    return getBagItems().reduce((total, item) => {
+        const product = findProduct(item.name);
+        return total + (product ? product.price * item.qty : 0);
+    }, 0);
+}
+
+function renderBag(){
+    const items = getBagItems();
+    bagDrawer.querySelector(".bag-subtotal-amount").textContent = formatPrice(getBagTotal());
+    bagItemsList.replaceChildren(...items.map(createBagRow));
+    bagItemsList.hidden = items.length === 0;
+    bagFooter.hidden = items.length === 0;
+    bagEmpty.hidden = items.length > 0;
+    updateBagCount();
+}
+
+function setBagOpen(isOpen){
+    bagDrawer.classList.toggle("is-open", isOpen);
+    bagOverlay.classList.toggle("is-open", isOpen);
+    document.body.classList.toggle("bag-open", isOpen);
+    bagDrawer.setAttribute("aria-hidden", String(!isOpen));
+    bagDrawer.inert = !isOpen;
+
+    if(isOpen){
+        bagStatus.textContent = "";
+        renderBag();
+        bagDrawer.querySelector(".bag-close").focus();
+    }else{
+        bagEmptyText.textContent = BAG_EMPTY_TEXT;
+        if(lastBagTrigger){
+            lastBagTrigger.focus();
+        }
+    }
+}
+
+setBagOpen(false);
+updateBagCount();
+
+/* Any "Bag" link (desktop navbar, mobile header, mobile menu) */
+document.querySelectorAll(".bag-link").forEach(link => {
+    link.addEventListener("click", event => {
+        event.preventDefault();
+        lastBagTrigger = link.closest(".mobile-sidebar") ? mobileMenuButton : link;
+        setMobileMenuOpen(false);
+        setBagOpen(true);
+    });
+});
+
+bagDrawer.querySelector(".bag-close").addEventListener("click", () => setBagOpen(false));
+bagOverlay.addEventListener("click", () => setBagOpen(false));
+
+document.addEventListener("keydown", event => {
+    if(event.key === "Escape" && bagDrawer.classList.contains("is-open")){
+        setBagOpen(false);
+    }
+});
+
+/* Demo checkout: button disables + spinner while "processing",
+   then the bag empties and shows a confirmation */
+bagCheckout.addEventListener("click", () => {
+    bagCheckout.disabled = true;
+    bagCheckout.setAttribute("aria-busy", "true");
+    bagCheckout.innerHTML = '<span class="spinner-sm" aria-hidden="true"></span> Processing...';
+    bagStatus.textContent = "";
+
+    window.setTimeout(() => {
+        saveBagItems([]);
+        renderBag();
+        bagEmptyText.textContent = "Order placed! This is a class prototype, so nothing was charged.";
+        bagCheckout.disabled = false;
+        bagCheckout.removeAttribute("aria-busy");
+        bagCheckout.textContent = "Checkout";
+    }, 1200);
+});
+
+/* Keep the bag in sync if it changes in another tab */
+window.addEventListener("storage", event => {
+    if(event.key === BAG_KEY){
+        renderBag();
+    }
+});
+
+/* ---------- Account link (A12) ----------
+   After you create an account, every Account link greets you by
+   first name. On the account page the link is marked as active. */
+function showAccountGreeting(){
+    let firstName = "";
+    try{
+        firstName = localStorage.getItem("zara-account-name") || "";
+    }catch(error){
+        firstName = "";
+    }
+    document.querySelectorAll(".account-link").forEach(link => {
+        link.textContent = firstName ? `Hi, ${firstName}` : "Account";
+        if(currentPage === "account"){
+            link.setAttribute("aria-current", "page");
+        }
+    });
+}
+
+showAccountGreeting();
+
+/* ---------- Quick add (critique round 2, Group 10) ----------
+   Pick a size + add to the bag from any product card without
+   leaving the page. Same rules as the product page: sold-out sizes
+   explain themselves, no size = error + shake, adding = spinner. */
+const quickAdd = document.querySelector("#quick-add");
+const quickSizes = quickAdd.querySelector(".quick-add-sizes");
+const quickNote = quickAdd.querySelector(".quick-add-note");
+const quickSubmit = quickAdd.querySelector(".quick-add-submit");
+const SOLD_OUT_SIZES = ["M", "XL"];
+let quickProduct = null;
+let quickSize = "";
+let quickTrigger = null;
+
+function openQuickAdd(productName, trigger){
+    quickProduct = findProduct(productName);
+    if(!quickProduct){
+        return;
+    }
+    quickTrigger = trigger;
+    quickSize = "";
+
+    quickAdd.querySelector("#quick-add-title").textContent = quickProduct.name;
+    fillPrice(quickAdd.querySelector(".quick-add-price"), quickProduct);
+    setImageSource(quickAdd.querySelector(".quick-add-image img"), IMG(quickProduct.image), quickProduct.alt);
+    quickAdd.querySelector(".quick-add-details").href =
+        `product.html?item=${encodeURIComponent(quickProduct.name)}${pageParams.get("category") ? `&category=${encodeURIComponent(pageParams.get("category"))}` : ""}`;
+
+    quickNote.textContent = "Select a size to continue.";
+    quickNote.classList.remove("is-error");
+    quickSubmit.disabled = false;
+    quickSubmit.textContent = "Add to bag";
+
+    quickSizes.replaceChildren(...["XS", "S", "M", "L", "XL"].map(size => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "size-button";
+        button.dataset.size = size;
+        button.setAttribute("aria-pressed", "false");
+        button.textContent = size;
+        if(SOLD_OUT_SIZES.includes(size)){
+            button.classList.add("is-sold-out");
+            button.setAttribute("aria-disabled", "true");
+            button.setAttribute("aria-label", `${size}, sold out`);
+            const tag = document.createElement("span");
+            tag.className = "sold-tag";
+            tag.textContent = "Sold out";
+            button.append(tag);
+        }
+        button.addEventListener("click", () => {
+            if(button.classList.contains("is-sold-out")){
+                showQuickError(`${size} is sold out. Please pick another size.`);
+                return;
+            }
+            quickSize = size;
+            quickSizes.querySelectorAll(".size-button").forEach(other => {
+                other.setAttribute("aria-pressed", String(other === button));
+            });
+            quickNote.classList.remove("is-error");
+            quickSizes.classList.remove("has-error");
+            quickNote.textContent = `Size ${size} selected.`;
+        });
+        return button;
+    }));
+
+    quickAdd.showModal();
+}
+
+function showQuickError(text){
+    quickNote.textContent = text;
+    quickNote.classList.add("is-error");
+    quickSizes.classList.add("has-error");
+    quickSizes.classList.remove("shake");
+    void quickSizes.offsetWidth;
+    quickSizes.classList.add("shake");
+}
+
+quickSubmit.addEventListener("click", () => {
+    if(!quickSize){
+        showQuickError("Please select a size first.");
+        return;
+    }
+    quickSubmit.disabled = true;
+    quickSubmit.setAttribute("aria-busy", "true");
+    quickSubmit.innerHTML = '<span class="spinner-sm" aria-hidden="true"></span> Adding...';
+
+    window.setTimeout(() => {
+        addBagItem({name:quickProduct.name, size:quickSize, color:"Charcoal"});
+        quickSubmit.removeAttribute("aria-busy");
+        quickSubmit.textContent = "Added to bag \u2713";
+        quickNote.classList.remove("is-error");
+        quickNote.textContent = `Added ${quickProduct.name}, size ${quickSize}. Bag: ${getBagCount()} items.`;
+        /* close on its own so you can keep shopping */
+        window.setTimeout(() => quickAdd.close(), 1100);
+    }, 600);
+});
+
+quickAdd.querySelector(".quick-add-close").addEventListener("click", () => quickAdd.close());
+quickAdd.addEventListener("click", event => {
+    if(event.target === quickAdd){
+        quickAdd.close();
+    }
+});
+quickAdd.addEventListener("close", () => {
+    if(quickTrigger){
+        quickTrigger.focus();
+    }
+});
+
+/* =========================================================
+   ACCOUNT PAGE ONLY (A12): real-time form validation
+
+   WHEN fields are checked ("helpful, not hostile"):
+   - While you type in a field you haven't left yet: we only show
+     the green "Looks good" once it's valid. No red errors on the
+     very first keystroke.
+   - When you leave a field (blur): it's checked fully, errors and all.
+   - After that, it re-checks on EVERY keystroke, so the error
+     disappears the moment you fix it.
+   - Password checklist + strength bar update live from the start.
+   - Submit checks everything once more, then jumps to the first
+     problem. No alert boxes anywhere.
+   ========================================================= */
+const form = document.querySelector(".account-form");
+const submitButton = form.querySelector(".account-submit");
+const formStatus = form.querySelector(".form-status");
+const touched = new Set();   /* fields the user has left at least once */
+
+/* Each validator returns "" when the value is fine, or a message
+   saying exactly what's wrong + how to fix it. Different problems
+   on the same field get different messages. */
+const validators = {
+    /* Any name works (one word, nicknames, anything). It only has
+       to be filled in and not ridiculously long. */
+    name(value){
+        const name = value.trim();
+        if(!name){
+            return "Enter a name so we know what to call you.";
+        }
+        if(name.length > 50){
+            return `Keep your name under 50 characters (it's ${name.length} now).`;
+        }
+        return "";
+    },
+
+    email(value){
+        const email = value.trim();
+        if(!email){
+            return "Enter your email address so we can send your order updates.";
+        }
+        if(/\s/.test(email)){
+            return "Email addresses can't have spaces. Remove any spaces.";
+        }
+        if(!email.includes("@")){
+            return "Your email is missing an @. It should look like name@example.com.";
+        }
+        if((email.match(/@/g) || []).length > 1){
+            return "Use only one @ in your email address.";
+        }
+        const [local, domain] = email.split("@");
+        if(!local){
+            return "Add the part before the @, like name@example.com.";
+        }
+        if(!domain){
+            return "Add the part after the @, like name@example.com.";
+        }
+        if(!/^[^.]+(\.[^.]+)+$/.test(domain) || /\.[a-z]?$/i.test(domain)){
+            return `Finish the ending after the @, like "${local}@gmail.com" or "${local}@uncc.edu".`;
+        }
+        return "";
+    },
+
+    /* Optional: empty is fine, but if you type something it must work */
+    phone(value){
+        if(!value.trim()){
+            return "";
+        }
+        if(/[A-Za-z]/.test(value)){
+            return "Use numbers only, like (704) 555-0123.";
+        }
+        const digits = value.replace(/\D/g, "");
+        if(digits.length < 10){
+            const missing = 10 - digits.length;
+            return `Phone numbers need 10 digits. Add ${missing} more ${missing === 1 ? "digit" : "digits"}.`;
+        }
+        if(digits.length > 10){
+            return "That's more than 10 digits. Enter a US number without the country code.";
+        }
+        return "";
+    },
+
+    password(value){
+        if(!value){
+            return "Create a password to protect your account.";
+        }
+        const missing = passwordRules.filter(rule => !rule.test(value)).map(rule => rule.label);
+        if(missing.length){
+            return `Still needed: ${listWords(missing)}.`;
+        }
+        if(/\s/.test(value)){
+            return "Remove the spaces from your password.";
+        }
+        return "";
+    },
+
+    confirm(value){
+        const password = form.elements.password.value;
+        if(!value){
+            return "Type your password again to confirm it.";
+        }
+        if(!password){
+            return "Fill in the Password field above first.";
+        }
+        if(value !== password){
+            return password.startsWith(value)
+                ? "Keep typing. This doesn't match your password yet."
+                : "Passwords don't match. Check for a typo, or use Show to compare them.";
+        }
+        return "";
+    },
+
+    terms(_, input){
+        return input.checked ? "" : "Check this box to agree to the terms before creating your account.";
+    }
+};
+
+/* What a valid field says (success state) */
+const successText = {
+    name: "Looks good.",
+    email: "Looks good.",
+    phone: "Looks good. We'll only text about deliveries.",
+    password: "Strong password.",
+    confirm: "Passwords match.",
+    terms: "Thanks for agreeing."
+};
+
+/* ---------- Password rules (checklist + strength bar) ---------- */
+const passwordRules = [
+    {id:"length", label:"8 or more characters", test:value => value.length >= 8},
+    {id:"upper",  label:"an uppercase letter",  test:value => /[A-Z]/.test(value)},
+    {id:"number", label:"a number",             test:value => /[0-9]/.test(value)},
+    {id:"symbol", label:"a symbol like ! or @", test:value => /[^A-Za-z0-9\s]/.test(value)}
+];
+
+/* ["a", "b", "c"] -> "a, b, plus c" (reads naturally in a sentence) */
+function listWords(words){
+    if(words.length === 1){
+        return words[0];
+    }
+    return `${words.slice(0, -1).join(", ")}, plus ${words[words.length - 1]}`;
+}
+
+const strength = form.querySelector(".strength");
+const strengthBar = strength.querySelector(".strength-bar span");
+const strengthLabel = strength.querySelector(".strength-label");
+const STRENGTH_NAMES = ["none yet", "weak", "fair", "good", "strong"];
+
+function updatePasswordChecklist(value){
+    let met = 0;
+    passwordRules.forEach(rule => {
+        const passed = rule.test(value);
+        form.querySelector(`[data-rule="${rule.id}"]`).classList.toggle("is-met", passed);
+        if(passed){
+            met += 1;
+        }
+    });
+    /* anything typed counts as at least "weak" */
+    const level = value ? Math.max(1, met) : 0;
+    strength.dataset.level = level;
+    strengthBar.style.width = `${level * 25}%`;
+    strengthLabel.textContent = `Strength: ${STRENGTH_NAMES[level]}`;
+}
+
+/* ---------- Show one field's result ---------- */
+function getInput(fieldName){
+    return form.querySelector(`[data-field="${fieldName}"] input`);
+}
+
+function setFieldState(fieldName, showErrors){
+    const field = form.querySelector(`[data-field="${fieldName}"]`);
+    const input = getInput(fieldName);
+    const message = field.querySelector(".field-msg");
+    const error = validators[fieldName](input.value, input);
+    const isEmptyOptional = fieldName === "phone" && !input.value.trim();
+
+    if(error && showErrors){
+        field.classList.add("is-invalid");
+        field.classList.remove("is-valid");
+        input.setAttribute("aria-invalid", "true");
+        message.textContent = error;
+    }else if(!error && !isEmptyOptional){
+        field.classList.remove("is-invalid");
+        field.classList.add("is-valid");
+        input.setAttribute("aria-invalid", "false");
+        message.textContent = successText[fieldName];
+    }else{
+        /* not finished yet + not left yet: stay neutral */
+        field.classList.remove("is-invalid", "is-valid");
+        input.removeAttribute("aria-invalid");
+        message.textContent = "";
+    }
+
+    return !error;
+}
+
+/* Phone auto-format: 7045550123 -> (704) 555-0123 */
+function formatPhone(input){
+    if(/[A-Za-z]/.test(input.value)){
+        return; /* leave letters so the error can point them out */
+    }
+    const digits = input.value.replace(/\D/g, "").slice(0, 11);
+    let formatted = digits;
+    if(digits.length > 6){
+        formatted = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }else if(digits.length > 3){
+        formatted = `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    }
+    input.value = formatted;
+}
+
+/* ---------- Wire up every field ---------- */
+Object.keys(validators).forEach(fieldName => {
+    const input = getInput(fieldName);
+    const eventName = input.type === "checkbox" ? "change" : "input";
+
+    /* As you type */
+    input.addEventListener(eventName, () => {
+        if(fieldName === "phone"){
+            formatPhone(input);
+        }
+        if(fieldName === "password"){
+            updatePasswordChecklist(input.value);
+            /* confirm box depends on this one, so re-check it too */
+            if(touched.has("confirm") || form.elements.confirm.value){
+                setFieldState("confirm", touched.has("confirm"));
+            }
+        }
+        if(input.type === "checkbox"){
+            touched.add(fieldName);
+        }
+        setFieldState(fieldName, touched.has(fieldName));
+        formStatus.textContent = "";
+        formStatus.classList.remove("is-error");
+    });
+
+    /* When you leave the field */
+    input.addEventListener("blur", () => {
+        /* skip blur if nothing was typed AND it's never been touched,
+           so tabbing through the form doesn't light everything red */
+        if(!input.value && !touched.has(fieldName) && input.type !== "checkbox"){
+            return;
+        }
+        touched.add(fieldName);
+        setFieldState(fieldName, true);
+    });
+});
+
+/* Show / Hide password (both password boxes) */
+const togglePassword = form.querySelector(".toggle-password");
+togglePassword.addEventListener("click", () => {
+    const show = form.elements.password.type === "password";
+    form.elements.password.type = show ? "text" : "password";
+    form.elements.confirm.type = show ? "text" : "password";
+    togglePassword.textContent = show ? "Hide" : "Show";
+    togglePassword.setAttribute("aria-pressed", String(show));
+});
+
+/* ---------- Submit ---------- */
+const formView = document.querySelector(".account-form-view");
+const successView = document.querySelector(".account-success");
+
+/* Pretend this email is already registered, to show a "server"
+   error appearing inline on the right field */
+const TAKEN_EMAILS = ["taken@example.com", "test@zara.com"];
+
+form.addEventListener("submit", event => {
+    event.preventDefault();
+
+    /* Check everything; any field not visited yet gets checked now */
+    const invalid = Object.keys(validators).filter(fieldName => {
+        touched.add(fieldName);
+        return !setFieldState(fieldName, true);
+    });
+
+    if(invalid.length){
+        formStatus.classList.add("is-error");
+        formStatus.textContent = invalid.length === 1
+            ? "1 field needs a fix. It's highlighted above."
+            : `${invalid.length} fields need a fix. They're highlighted above.`;
+        /* jump to the first problem so the user knows where to start */
+        getInput(invalid[0]).focus();
+        return;
+    }
+
+    /* Loading state: button disables + spinner while "saving" */
+    submitButton.disabled = true;
+    submitButton.setAttribute("aria-busy", "true");
+    submitButton.innerHTML = '<span class="spinner-sm" aria-hidden="true"></span> Creating account...';
+    formStatus.classList.remove("is-error");
+    formStatus.textContent = "";
+
+    window.setTimeout(() => {
+        submitButton.disabled = false;
+        submitButton.removeAttribute("aria-busy");
+        submitButton.textContent = "Create account";
+
+        /* "Server" says the email is taken: error goes on the email field */
+        const email = form.elements.email.value.trim().toLowerCase();
+        if(TAKEN_EMAILS.includes(email)){
+            const field = form.querySelector('[data-field="email"]');
+            field.classList.remove("is-valid");
+            field.classList.add("is-invalid");
+            form.elements.email.setAttribute("aria-invalid", "true");
+            field.querySelector(".field-msg").textContent =
+                "An account with this email already exists. Use a different email, or sign in instead.";
+            formStatus.classList.add("is-error");
+            formStatus.textContent = "We couldn't create your account. See the email field above.";
+            form.elements.email.focus();
+            return;
+        }
+
+        /* Success: save the name exactly as typed, show it in the header
+           + on the confirmation screen */
+        const firstName = form.elements.name.value.trim().replace(/\s+/g, " ");
+        try{
+            localStorage.setItem("zara-account-name", firstName);
+        }catch(error){
+            /* storage blocked: greeting just won't carry to other pages */
+        }
+        showAccountGreeting();
+
+        formView.hidden = true;
+        successView.querySelector(".success-title").textContent = `Welcome, ${firstName}!`;
+        successView.querySelector(".success-text").textContent =
+            `Your account is ready. We sent a confirmation to ${form.elements.email.value.trim()}.`;
+        successView.hidden = false;
+        successView.focus();
+    }, 1200);
+});
+
+</script>
+
+</body>
+</html>
